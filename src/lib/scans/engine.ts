@@ -122,45 +122,73 @@ export function buildCustomerSearchQuery(customer: {
   return `${cleanName} ${locParts.join(" ")}`;
 }
 
-// SearXNG Health & Circuit Breaker (Mencegah blocking 6 detik jika serverless/offline)
-let cachedSearxngHealthy: boolean | null = null;
+// SearXNG Search Pool: Local container + Verified public instances
+const PUBLIC_SEARXNG_FALLBACKS = [
+  "https://etsi.me",
+  "https://search.lumy.live",
+];
+
+let activeSearxngUrl: string | null = null;
 let lastSearxngCheckTime = 0;
 
-export async function isSearxngAvailable(): Promise<boolean> {
+export async function getActiveSearxngUrl(): Promise<string | null> {
   const now = Date.now();
-  if (cachedSearxngHealthy !== null && now - lastSearxngCheckTime < 60000) {
-    return cachedSearxngHealthy;
+  if (activeSearxngUrl && now - lastSearxngCheckTime < 120000) {
+    return activeSearxngUrl;
   }
 
-  const searxngBase = process.env.SEARXNG_URL?.replace("localhost", "127.0.0.1") || "http://127.0.0.1:8080";
+  const configured = process.env.SEARXNG_URL?.replace("localhost", "127.0.0.1");
 
-  // Jika di Vercel cloud dan target URL adalah localhost/127.0.0.1 -> dipastikan offline
-  if (
-    (process.env.VERCEL || process.env.NODE_ENV === "production") &&
-    (searxngBase.includes("127.0.0.1") || searxngBase.includes("localhost"))
-  ) {
-    cachedSearxngHealthy = false;
-    lastSearxngCheckTime = now;
-    return false;
+  // 1. Cek instance terkonfigurasi (misal: Docker lokal di 127.0.0.1:8080 atau remote URL)
+  if (configured) {
+    const isLocalCloud =
+      (process.env.VERCEL || process.env.NODE_ENV === "production") &&
+      (configured.includes("127.0.0.1") || configured.includes("localhost"));
+
+    if (!isLocalCloud) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1200);
+        const res = await fetch(`${configured}/search?q=test&format=json`, {
+          signal: controller.signal,
+          headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+        }).catch(() => null);
+        clearTimeout(timeout);
+
+        if (res && res.ok) {
+          activeSearxngUrl = configured;
+          lastSearxngCheckTime = now;
+          return activeSearxngUrl;
+        }
+      } catch {}
+    }
   }
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1000);
-    const res = await fetch(`${searxngBase}/`, {
-      method: "HEAD",
-      signal: controller.signal,
-    }).catch(() => null);
-    clearTimeout(timeout);
+  // 2. Fallback ke verified public instances jika di cloud Vercel atau lokal tanpa Docker
+  for (const fallbackUrl of PUBLIC_SEARXNG_FALLBACKS) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch(`${fallbackUrl}/search?q=test&format=json`, {
+        signal: controller.signal,
+        headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+      }).catch(() => null);
+      clearTimeout(timeout);
 
-    cachedSearxngHealthy = !!res && res.status < 500;
-    lastSearxngCheckTime = now;
-    return cachedSearxngHealthy;
-  } catch {
-    cachedSearxngHealthy = false;
-    lastSearxngCheckTime = now;
-    return false;
+      if (res && res.ok) {
+        activeSearxngUrl = fallbackUrl;
+        lastSearxngCheckTime = now;
+        return activeSearxngUrl;
+      }
+    } catch {}
   }
+
+  return null;
+}
+
+export async function isSearxngAvailable(): Promise<boolean> {
+  const url = await getActiveSearxngUrl();
+  return url !== null;
 }
 
 // Helper: Search Google/Bing/Yahoo via SearXNG Metasearch Layer
@@ -173,21 +201,23 @@ export async function searchGoogleViaSearxng(customer: {
   candidateWebsite: { domain: string; url: string; title: string } | null;
   candidateInstagram: { handle: string; url: string; title: string } | null;
 }> {
-  const available = await isSearxngAvailable();
-  if (!available) {
+  const searxngBase = await getActiveSearxngUrl();
+  if (!searxngBase) {
     return { candidateWebsite: null, candidateInstagram: null };
   }
 
-  const searxngBase = process.env.SEARXNG_URL?.replace("localhost", "127.0.0.1") || "http://127.0.0.1:8080";
   const query = buildCustomerSearchQuery(customer);
-  const searchUrl = `${searxngBase}/search?q=${encodeURIComponent(query)}&engines=google,bing,yahoo&format=json`;
+  const searchUrl = `${searxngBase}/search?q=${encodeURIComponent(query)}&format=json`;
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2000);
+    const timer = setTimeout(() => controller.abort(), 3500);
     const res = await fetch(searchUrl, {
       signal: controller.signal,
-      headers: { Accept: "application/json" },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Accept: "application/json",
+      },
     });
     clearTimeout(timer);
 
