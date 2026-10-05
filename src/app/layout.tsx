@@ -19,6 +19,11 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "CRM EZY — Customer Digital Presence Intelligence",
   description: "Internal sales intelligence platform to discover website and Instagram opportunities across customer databases.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
