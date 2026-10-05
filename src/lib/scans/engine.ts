@@ -122,73 +122,25 @@ export function buildCustomerSearchQuery(customer: {
   return `${cleanName} ${locParts.join(" ")}`;
 }
 
-// SearXNG Search Pool: Local container + Verified public instances
+// SearXNG Search Pool: Verified public instances as backup
 const PUBLIC_SEARXNG_FALLBACKS = [
   "https://etsi.me",
   "https://search.lumy.live",
 ];
 
-let activeSearxngUrl: string | null = null;
-let lastSearxngCheckTime = 0;
+export function getConfiguredSearxngUrl(): string | null {
+  const raw = process.env.SEARXNG_URL?.trim();
+  if (!raw) return null;
 
-export async function getActiveSearxngUrl(): Promise<string | null> {
-  const now = Date.now();
-  if (activeSearxngUrl && now - lastSearxngCheckTime < 120000) {
-    return activeSearxngUrl;
-  }
+  // Jika di Vercel cloud dan target URL masih default localhost/127.0.0.1 -> abaikan localhost
+  const isLocalOnCloud =
+    (process.env.VERCEL || process.env.NODE_ENV === "production") &&
+    (raw.includes("127.0.0.1") || raw.includes("localhost"));
 
-  const configured = process.env.SEARXNG_URL?.replace("localhost", "127.0.0.1");
+  if (isLocalOnCloud) return null;
 
-  // 1. Cek instance terkonfigurasi (misal: Docker lokal di 127.0.0.1:8080 atau remote URL)
-  if (configured) {
-    const isLocalCloud =
-      (process.env.VERCEL || process.env.NODE_ENV === "production") &&
-      (configured.includes("127.0.0.1") || configured.includes("localhost"));
-
-    if (!isLocalCloud) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1200);
-        const res = await fetch(`${configured}/search?q=test&format=json`, {
-          signal: controller.signal,
-          headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
-        }).catch(() => null);
-        clearTimeout(timeout);
-
-        if (res && res.ok) {
-          activeSearxngUrl = configured;
-          lastSearxngCheckTime = now;
-          return activeSearxngUrl;
-        }
-      } catch {}
-    }
-  }
-
-  // 2. Fallback ke verified public instances jika di cloud Vercel atau lokal tanpa Docker
-  for (const fallbackUrl of PUBLIC_SEARXNG_FALLBACKS) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch(`${fallbackUrl}/search?q=test&format=json`, {
-        signal: controller.signal,
-        headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
-      }).catch(() => null);
-      clearTimeout(timeout);
-
-      if (res && res.ok) {
-        activeSearxngUrl = fallbackUrl;
-        lastSearxngCheckTime = now;
-        return activeSearxngUrl;
-      }
-    } catch {}
-  }
-
-  return null;
-}
-
-export async function isSearxngAvailable(): Promise<boolean> {
-  const url = await getActiveSearxngUrl();
-  return url !== null;
+  // Bersihkan trailing slash agar endpoint /search tidak double slash
+  return raw.replace(/\/+$/, "");
 }
 
 // Helper: Search Google/Bing/Yahoo via SearXNG Metasearch Layer
@@ -201,95 +153,117 @@ export async function searchGoogleViaSearxng(customer: {
   candidateWebsite: { domain: string; url: string; title: string } | null;
   candidateInstagram: { handle: string; url: string; title: string } | null;
 }> {
-  const searxngBase = await getActiveSearxngUrl();
-  if (!searxngBase) {
-    return { candidateWebsite: null, candidateInstagram: null };
+  const configured = getConfiguredSearxngUrl();
+  const searchEndpoints: string[] = [];
+
+  if (configured) {
+    searchEndpoints.push(configured);
   }
+  searchEndpoints.push(...PUBLIC_SEARXNG_FALLBACKS);
 
   const query = buildCustomerSearchQuery(customer);
-  const searchUrl = `${searxngBase}/search?q=${encodeURIComponent(query)}&format=json`;
+  const brandClean = cleanBrandName(customer.business_name);
+  const brandKeywords = customer.business_name
+    .toLowerCase()
+    .replace(/^pt\.?\s+/i, "")
+    .replace(/^cv\.?\s+/i, "")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
 
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
-    const res = await fetch(searchUrl, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        Accept: "application/json",
-      },
-    });
-    clearTimeout(timer);
+  for (const baseUrl of searchEndpoints) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4500);
+      const searchUrl = `${baseUrl}/search?q=${encodeURIComponent(query)}&format=json`;
 
-    if (!res.ok) return { candidateWebsite: null, candidateInstagram: null };
+      const res = await fetch(searchUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          Accept: "application/json",
+        },
+      });
+      clearTimeout(timer);
 
-    const data = await res.json();
-    const results: Array<{ title?: string; url?: string }> = data.results || [];
-
-    let candidateInstagram: { handle: string; url: string; title: string } | null = null;
-    let candidateWebsite: { domain: string; url: string; title: string } | null = null;
-
-    const brandClean = cleanBrandName(customer.business_name);
-    const brandKeywords = customer.business_name
-      .toLowerCase()
-      .replace(/^pt\.?\s+/i, "")
-      .replace(/^cv\.?\s+/i, "")
-      .split(/\s+/)
-      .filter((w) => w.length >= 3);
-
-    for (const r of results) {
-      if (!r.url) continue;
-
-      if (!candidateInstagram && r.url.includes("instagram.com/")) {
-        const match = r.url.match(/instagram\.com\/([a-zA-Z0-9._]+)/);
-        if (
-          match &&
-          match[1] &&
-          !["p", "reel", "reels", "stories", "explore", "direct", "accounts", "popular", "tags", "locations", "share", "tv"].includes(match[1].toLowerCase())
-        ) {
-          candidateInstagram = {
-            handle: match[1],
-            url: `https://www.instagram.com/${match[1]}/`,
-            title: r.title || "",
-          };
-        }
+      if (!res.ok) {
+        console.warn(`[SearXNG] ${baseUrl} returned status ${res.status}`);
+        continue;
       }
 
-      if (!candidateWebsite) {
-        try {
-          const parsed = new URL(r.url);
-          const host = parsed.hostname.toLowerCase();
-          const hostClean = host.replace(/^www\./, "");
+      const data = await res.json();
+      const results: Array<{ title?: string; url?: string }> = data.results || [];
 
-          const isExcluded = EXCLUDED_AGGREGATOR_DOMAINS.some((ex) => host.includes(ex));
-          const isParking = DOMAIN_PARKING_SIGNATURES.some(
-            (dp) => host.includes(dp) || (r.url && r.url.toLowerCase().includes(dp))
-          );
+      if (!results || results.length === 0) {
+        continue;
+      }
 
-          if (!isExcluded && !isParking) {
-            const hostParts = hostClean.split(".");
-            const mainDomainName = hostParts[0];
+      let candidateInstagram: { handle: string; url: string; title: string } | null = null;
+      let candidateWebsite: { domain: string; url: string; title: string } | null = null;
 
-            const domainMatchesBrand =
-              brandKeywords.some((kw) => mainDomainName.includes(kw)) ||
-              (brandClean.length >= 3 && mainDomainName.includes(brandClean));
+      for (const r of results) {
+        if (!r.url) continue;
 
-            if (domainMatchesBrand) {
-              candidateWebsite = {
-                domain: hostClean,
-                url: `${parsed.protocol}//${parsed.hostname}${parsed.pathname}`,
-                title: r.title || "",
-              };
-            }
+        // 1. Ekstraksi Instagram profil resmi dari Google / Bing / Yahoo
+        if (!candidateInstagram && r.url.includes("instagram.com/")) {
+          const match = r.url.match(/instagram\.com\/([a-zA-Z0-9._]+)/);
+          if (
+            match &&
+            match[1] &&
+            !["p", "reel", "reels", "stories", "explore", "direct", "accounts", "popular", "tags", "locations", "share", "tv"].includes(match[1].toLowerCase())
+          ) {
+            candidateInstagram = {
+              handle: match[1],
+              url: `https://www.instagram.com/${match[1]}/`,
+              title: r.title || "",
+            };
           }
-        } catch {}
-      }
-    }
+        }
 
-    return { candidateWebsite, candidateInstagram };
-  } catch {
-    return { candidateWebsite: null, candidateInstagram: null };
+        // 2. Ekstraksi Website Kandidat Resmi
+        if (!candidateWebsite) {
+          try {
+            const parsed = new URL(r.url);
+            const host = parsed.hostname.toLowerCase();
+            const hostClean = host.replace(/^www\./, "");
+
+            const isExcluded = EXCLUDED_AGGREGATOR_DOMAINS.some((ex) => host.includes(ex));
+            const isParking = DOMAIN_PARKING_SIGNATURES.some(
+              (dp) => host.includes(dp) || (r.url && r.url.toLowerCase().includes(dp))
+            );
+
+            if (!isExcluded && !isParking) {
+              const hostParts = hostClean.split(".");
+              const mainDomainName = hostParts[0];
+
+              const domainMatchesBrand =
+                brandKeywords.some((kw) => mainDomainName.includes(kw)) ||
+                (brandClean.length >= 3 && mainDomainName.includes(brandClean));
+
+              if (domainMatchesBrand) {
+                candidateWebsite = {
+                  domain: hostClean,
+                  url: `${parsed.protocol}//${parsed.hostname}${parsed.pathname}`,
+                  title: r.title || "",
+                };
+              }
+            }
+          } catch {}
+        }
+
+        if (candidateWebsite && candidateInstagram) break;
+      }
+
+      // Jika berhasil menemukan minimal salah satu atau hasil pencarian valid, kembalikan
+      if (candidateWebsite || candidateInstagram || results.length > 0) {
+        return { candidateWebsite, candidateInstagram };
+      }
+    } catch (err: any) {
+      console.warn(`[SearXNG] Search error on ${baseUrl}:`, err?.message);
+    }
   }
+
+  return { candidateWebsite: null, candidateInstagram: null };
 }
 
 // Helper: Hitung Skor Kemiripan Website sesuai PRD Section 13 (Maks 100)
