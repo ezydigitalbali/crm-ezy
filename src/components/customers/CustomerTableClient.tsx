@@ -194,9 +194,9 @@ export default function CustomerTableClient({
   const cities = useMemo(() => {
     const set = new Set<string>();
     customers.forEach((c) => {
-      if (c.city) set.add(c.city);
+      if (c.city && c.city.trim()) set.add(c.city.trim());
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [customers]);
 
   // Filtering
@@ -268,7 +268,10 @@ export default function CustomerTableClient({
         if (selectedSalesPic !== "UNASSIGNED" && c.assigned_to?.id !== selectedSalesPic && c.assigned_to_id !== selectedSalesPic) return false;
       }
       if (selectedCategory !== "ALL" && c.business_category !== selectedCategory) return false;
-      if (selectedCity !== "ALL" && c.city !== selectedCity) return false;
+      if (selectedCity !== "ALL") {
+        if (!c.city) return false;
+        if (c.city.trim().toLowerCase() !== selectedCity.trim().toLowerCase()) return false;
+      }
 
       return true;
     });
@@ -513,6 +516,45 @@ export default function CustomerTableClient({
             ]}
             menuWidth="w-56"
           />
+
+          {/* Kota Dropdown */}
+          <CustomDropdown
+            value={selectedCity}
+            onChange={setSelectedCity}
+            prefix="Kota"
+            options={[
+              { value: "ALL", label: "Semua" },
+              ...cities.map((city) => ({ value: city, label: city })),
+            ]}
+            menuWidth="w-44"
+          />
+
+          {/* Reset Filters button if any active filter */}
+          {(selectedSisterCompany !== "ALL" ||
+            selectedLeadStatus !== "ALL" ||
+            selectedSalesPic !== "ALL" ||
+            selectedWebsite !== "ALL" ||
+            selectedInstagram !== "ALL" ||
+            selectedCategory !== "ALL" ||
+            selectedCity !== "ALL" ||
+            search.trim() !== "") && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSisterCompany("ALL");
+                setSelectedLeadStatus("ALL");
+                setSelectedSalesPic("ALL");
+                setSelectedWebsite("ALL");
+                setSelectedInstagram("ALL");
+                setSelectedCategory("ALL");
+                setSelectedCity("ALL");
+                setSearch("");
+              }}
+              className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold underline cursor-pointer px-1 py-1"
+            >
+              Reset Filter
+            </button>
+          )}
         </div>
 
         {/* Counter */}
