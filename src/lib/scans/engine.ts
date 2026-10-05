@@ -129,8 +129,13 @@ const PUBLIC_SEARXNG_FALLBACKS = [
 ];
 
 export function getConfiguredSearxngUrl(): string | null {
-  const raw = process.env.SEARXNG_URL?.trim();
+  let raw = process.env.SEARXNG_URL?.trim();
   if (!raw) return null;
+
+  // Otomatis tambahkan https:// jika user memasukkan domain tanpa protokol (cth: crm-ezy-production.up.railway.app)
+  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+    raw = `https://${raw}`;
+  }
 
   // Jika di Vercel cloud dan target URL masih default localhost/127.0.0.1 -> abaikan localhost
   const isLocalOnCloud =
