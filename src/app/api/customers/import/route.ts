@@ -220,49 +220,51 @@ export async function POST(req: Request) {
       return true;
     });
 
-    // 4. Batch transaction insert per 25 items agar sangat cepat & aman di serverless Vercel
+    // 4. Batch insert interaktif per 25 items agar sangat cepat & aman di serverless Vercel
     const CHUNK_SIZE = 25;
     for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
       const chunk = toInsert.slice(i, i + CHUNK_SIZE);
       await prisma.$transaction(
-        chunk.map((item) => {
-          let webClean = item.websiteUrl ? item.websiteUrl.replace(/^https?:\/\//i, "").replace(/\/$/, "") : null;
-          let igClean = item.igHandle ? item.igHandle.replace(/^@/, "").trim() : null;
+        async (tx) => {
+          for (const item of chunk) {
+            let webClean = item.websiteUrl ? item.websiteUrl.replace(/^https?:\/\//i, "").replace(/\/$/, "") : null;
+            let igClean = item.igHandle ? item.igHandle.replace(/^@/, "").trim() : null;
 
-          return prisma.customer.create({
-            data: {
-              business_name: item.businessName,
-              contact_name: item.contactName,
-              phone: item.phone,
-              email: item.email,
-              address: item.address,
-              city: item.city,
-              province: "Bali",
-              business_category: item.category,
-              source: "EXCEL_IMPORT",
-              sister_company: item.sisterCompany,
-              lead_status: "NEW_LEAD",
-              website: {
-                create: {
-                  domain: webClean || null,
-                  url: webClean ? `https://${webClean}` : null,
-                  status: webClean ? "ACTIVE" : "NOT_FOUND",
-                  discovery_source: webClean ? "EXCEL_IMPORT" : "PENDING_SCAN",
-                  confidence_score: webClean ? 90 : 0,
+            await tx.customer.create({
+              data: {
+                business_name: item.businessName,
+                contact_name: item.contactName,
+                phone: item.phone,
+                email: item.email,
+                address: item.address,
+                city: item.city,
+                province: "Bali",
+                business_category: item.category,
+                source: "EXCEL_IMPORT",
+                sister_company: item.sisterCompany,
+                lead_status: "NEW_LEAD",
+                website: {
+                  create: {
+                    domain: webClean || null,
+                    url: webClean ? `https://${webClean}` : null,
+                    status: webClean ? "ACTIVE" : "NOT_FOUND",
+                    discovery_source: webClean ? "EXCEL_IMPORT" : "PENDING_SCAN",
+                    confidence_score: webClean ? 90 : 0,
+                  },
+                },
+                instagram: {
+                  create: {
+                    username: igClean || null,
+                    profile_url: igClean ? `https://instagram.com/${igClean}` : null,
+                    status: igClean ? "ACTIVE" : "NOT_FOUND",
+                    discovery_source: igClean ? "EXCEL_IMPORT" : "PENDING_SCAN",
+                    confidence_score: igClean ? 90 : 0,
+                  },
                 },
               },
-              instagram: {
-                create: {
-                  username: igClean || null,
-                  profile_url: igClean ? `https://instagram.com/${igClean}` : null,
-                  status: igClean ? "ACTIVE" : "NOT_FOUND",
-                  discovery_source: igClean ? "EXCEL_IMPORT" : "PENDING_SCAN",
-                  confidence_score: igClean ? 90 : 0,
-                },
-              },
-            },
-          });
-        }),
+            });
+          }
+        },
         { timeout: 30000, maxWait: 10000 }
       );
       imported += chunk.length;
