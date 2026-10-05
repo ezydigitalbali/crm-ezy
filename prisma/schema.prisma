@@ -1,0 +1,343 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum WebsiteStatus {
+  ACTIVE
+  INACTIVE
+  NOT_FOUND
+  NEEDS_REVIEW
+  SCAN_FAILED
+}
+
+enum InstagramStatus {
+  ACTIVE
+  COOLING
+  INACTIVE
+  DORMANT
+  NOT_FOUND
+  NEEDS_REVIEW
+  SCAN_FAILED
+}
+
+enum ScanJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum LeadStatus {
+  NEW_LEAD
+  CONTACTED
+  FOLLOW_UP
+  NEGOTIATION
+  SUCCESS
+  FAILED
+}
+
+model SisterCompany {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String?
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([name])
+}
+
+model Customer {
+  id                String               @id @default(cuid())
+  business_name     String
+  contact_name      String?
+  phone             String?
+  email             String?
+  address           String?
+  city              String?
+  province          String?
+  country           String               @default("Indonesia")
+  business_category String?
+  source            String?              @default("MANUAL")
+  sister_company    String?              @default("EZY Property")
+  
+  lead_status       LeadStatus           @default(NEW_LEAD)
+  assigned_to_id    String?
+  assigned_to       User?                @relation("AssignedCustomers", fields: [assigned_to_id], references: [id], onDelete: SetNull)
+  last_contacted_at DateTime?
+  last_contacted_by String?
+  lead_notes        String?
+  offering_value    Float?
+  deal_value        Float?
+  closing_services  String?              // Comma-separated: "WEBSITE,SEO,SOCMED,PRODUCTION"
+
+  website           Website?
+  instagram         InstagramProfile?
+  
+  website_candidates   WebsiteCandidate[]
+  instagram_candidates InstagramCandidate[]
+  scan_items           ScanJobItem[]
+  audit_logs           AuditLog[]
+  activities           CustomerActivity[]
+
+  created_at        DateTime             @default(now())
+  updated_at        DateTime             @updatedAt
+
+  @@index([business_name])
+  @@index([city])
+  @@index([business_category])
+  @@index([sister_company])
+  @@index([lead_status])
+  @@index([assigned_to_id])
+}
+
+model Website {
+  id                  String         @id @default(cuid())
+  customer_id         String         @unique
+  customer            Customer       @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  
+  domain              String?
+  url                 String?
+  status              WebsiteStatus  @default(NOT_FOUND)
+  discovery_source    String?        // MANUAL, OSM, SEARXNG
+  confidence_score    Int            @default(0)
+  http_status         Int?
+  ssl_valid           Boolean?
+  final_url           String?
+  response_time_ms    Int?
+  manually_verified   Boolean        @default(false)
+  last_checked_at     DateTime?
+  first_discovered_at DateTime?
+
+  checks              WebsiteCheck[]
+  created_at          DateTime       @default(now())
+  updated_at          DateTime       @updatedAt
+
+  @@index([status])
+  @@index([domain])
+}
+
+model WebsiteCandidate {
+  id               String   @id @default(cuid())
+  customer_id      String
+  customer         Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  
+  domain           String
+  url              String
+  source           String
+  confidence_score Int
+  status           String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  
+  created_at       DateTime @default(now())
+
+  @@index([customer_id])
+}
+
+model WebsiteCheck {
+  id               String        @id @default(cuid())
+  website_id       String
+  website          Website       @relation(fields: [website_id], references: [id], onDelete: Cascade)
+  
+  status           WebsiteStatus
+  http_status      Int?
+  ssl_valid        Boolean?
+  response_time_ms Int?
+  error_message    String?
+  
+  checked_at       DateTime      @default(now())
+
+  @@index([website_id])
+  @@index([checked_at])
+}
+
+model InstagramProfile {
+  id                 String          @id @default(cuid())
+  customer_id        String          @unique
+  customer           Customer        @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  
+  username           String?
+  profile_url        String?
+  display_name       String?
+  status             InstagramStatus @default(NOT_FOUND)
+  last_post_at       DateTime?
+  posts_last_30_days Int             @default(0)
+  posts_last_90_days Int             @default(0)
+  discovery_source   String?         // MANUAL, SEARXNG
+  confidence_score   Int             @default(0)
+  manually_verified  Boolean         @default(false)
+  last_checked_at    DateTime?
+
+  checks             InstagramCheck[]
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+
+  @@index([status])
+  @@index([username])
+}
+
+model InstagramCandidate {
+  id               String   @id @default(cuid())
+  customer_id      String
+  customer         Customer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  
+  username         String
+  profile_url      String
+  display_name     String?
+  confidence_score Int
+  status           String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  
+  created_at       DateTime @default(now())
+
+  @@index([customer_id])
+}
+
+model InstagramCheck {
+  id                 String          @id @default(cuid())
+  instagram_id       String
+  instagram          InstagramProfile @relation(fields: [instagram_id], references: [id], onDelete: Cascade)
+  
+  status             InstagramStatus
+  last_post_at       DateTime?
+  posts_last_30_days Int             @default(0)
+  posts_last_90_days Int             @default(0)
+  error_message      String?
+  
+  checked_at         DateTime        @default(now())
+
+  @@index([instagram_id])
+  @@index([checked_at])
+}
+
+model ScanJob {
+  id           String        @id @default(cuid())
+  type         String        @default("ALL") // ALL, WEBSITE_ONLY, INSTAGRAM_ONLY
+  status       ScanJobStatus @default(QUEUED)
+  total        Int           @default(0)
+  processed    Int           @default(0)
+  successful   Int           @default(0)
+  failed       Int           @default(0)
+  needs_review Int           @default(0)
+  created_by   String        @default("SYSTEM")
+  started_at   DateTime?
+  completed_at DateTime?
+
+  items        ScanJobItem[]
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+
+  @@index([status])
+}
+
+model ScanJobItem {
+  id             String    @id @default(cuid())
+  scan_job_id    String
+  scan_job       ScanJob   @relation(fields: [scan_job_id], references: [id], onDelete: Cascade)
+  customer_id    String
+  customer       Customer  @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  
+  status         String    @default("PENDING") // PENDING, SUCCESS, FAILED, NEEDS_REVIEW
+  result_summary String?
+  created_at     DateTime  @default(now())
+
+  @@index([scan_job_id])
+  @@index([customer_id])
+}
+
+model ImportJob {
+  id            String   @id @default(cuid())
+  file_name     String
+  total_rows    Int      @default(0)
+  imported_rows Int      @default(0)
+  skipped_rows  Int      @default(0)
+  status        String   @default("COMPLETED")
+  created_at    DateTime @default(now())
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  user_name   String    @default("System")
+  action      String
+  entity      String
+  entity_id   String?
+  metadata    String?
+  customer_id String?
+  customer    Customer? @relation(fields: [customer_id], references: [id], onDelete: SetNull)
+  created_at  DateTime  @default(now())
+
+  @@index([entity, entity_id])
+  @@index([created_at])
+}
+
+model Setting {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      String
+  updated_at DateTime @updatedAt
+}
+
+enum Role {
+  SUPERADMIN
+  HEAD
+  SALES
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password_hash String
+  role          Role      @default(SALES)
+  specialty     String?   @default("Website & Social Media Specialist")
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  sessions           Session[]
+  assigned_customers Customer[]         @relation("AssignedCustomers")
+  activities         CustomerActivity[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model CustomerActivity {
+  id          String      @id @default(cuid())
+  customer_id String
+  customer    Customer    @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  user_id     String?
+  user        User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user_name   String      @default("System")
+  action_type String      // WHATSAPP_CHAT, STATUS_CHANGE, NOTE, CALL, MEETING
+  status_from      LeadStatus?
+  status_to        LeadStatus?
+  offering_value   Float?
+  deal_value       Float?
+  closing_services String?
+  notes            String?
+  created_at       DateTime    @default(now())
+
+  @@index([customer_id])
+  @@index([user_id])
+  @@index([created_at])
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  session_token String   @unique
+  user_id       String
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  expires_at    DateTime
+  created_at    DateTime @default(now())
+
+  @@index([session_token])
+  @@index([user_id])
+}
+

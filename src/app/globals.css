@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --ezy-orange: #FF7800;
+    --ezy-blue: #1A75FF;
+    --ezy-navy: #002236;
+    --ezy-dark: #1C1B18;
+    --ezy-ivory: #FCFBF0;
+    --ezy-white: #FFFFFF;
+    --ezy-border: rgba(28, 27, 24, 0.1);
+    --ezy-border-strong: rgba(28, 27, 24, 0.18);
+  }
+
+  body {
+    background-color: var(--ezy-ivory);
+    color: var(--ezy-dark);
+    font-family: var(--font-display), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Numeric elements strictly use Space Mono */
+.font-number, .font-mono-data {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Custom Scrollbar for dense data tables */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(28, 27, 24, 0.04);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(28, 27, 24, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(28, 27, 24, 0.35);
+}

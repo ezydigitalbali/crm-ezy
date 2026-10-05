@@ -1,0 +1,43 @@
+services:
+  crm_postgres:
+    image: postgres:16-alpine
+    container_name: crm_ezy_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_password_ezy2026
+      POSTGRES_DB: crm_ezy
+    ports:
+      - "5434:5432"
+    volumes:
+      - crm_ezy_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm_user -d crm_ezy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  crm_redis:
+    image: redis:7-alpine
+    container_name: crm_ezy_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - crm_ezy_redis_data:/data
+
+  crm_searxng:
+    image: searxng/searxng:latest
+    container_name: crm_ezy_searxng
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+      - INSTANCE_NAME=EZY-Search-Engine
+    volumes:
+      - ./docker/searxng:/etc/searxng:rw
+
+volumes:
+  crm_ezy_postgres_data:
+  crm_ezy_redis_data:
