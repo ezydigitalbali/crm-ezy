@@ -36,7 +36,6 @@ export default async function DashboardPage() {
     igActiveCount,
     customers,
   ] = await Promise.all([
-    getSessionUser(),
     prisma.customer.count(),
     prisma.website.count({ where: { status: "ACTIVE" } }),
     prisma.website.count({ where: { status: "NOT_FOUND" } }),
