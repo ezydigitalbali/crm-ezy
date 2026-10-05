@@ -17,12 +17,14 @@ interface ToastContextType {
   toast: (message: string, type?: ToastType, title?: string, duration?: number) => void;
   success: (message: string, title?: string) => void;
   error: (message: string, title?: string) => void;
+  addToast: (type: ToastType, title: string, message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType>({
   toast: () => {},
   success: () => {},
   error: () => {},
+  addToast: () => {},
 });
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -59,9 +61,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     },
     [addToast]
   );
+  const addToastHelper = useCallback(
+    (type: ToastType, title: string, message: string) => {
+      addToast(message, type, title, 4500);
+    },
+    [addToast]
+  );
 
   return (
-    <ToastContext.Provider value={{ toast: addToast, success, error }}>
+    <ToastContext.Provider value={{ toast: addToast, success, error, addToast: addToastHelper }}>
       {children}
       
       {/* Toast Notification Container di Pojok Kanan Bawah */}

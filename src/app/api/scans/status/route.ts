@@ -37,6 +37,17 @@ export async function GET(req: Request) {
       });
     }
 
+    if (job && job.status === "RUNNING") {
+      const lastUpdate = new Date(job.updated_at).getTime();
+      if (Date.now() - lastUpdate > 180000) {
+        // Job dianggap mati / timeout di serverless
+        job = await prisma.scanJob.update({
+          where: { id: job.id },
+          data: { status: "FAILED", completed_at: new Date() },
+        });
+      }
+    }
+
     return NextResponse.json({
       success: true,
       job,

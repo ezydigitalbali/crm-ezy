@@ -789,14 +789,14 @@ export async function POST(req: Request) {
 
     const { scanType = "ALL" } = await req.json().catch(() => ({ scanType: "ALL" }));
 
-    // Cek apakah ada scan job yang sedang berjalan (cleanup jika sudah stale > 30 menit)
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    // Cek apakah ada scan job yang stale (tidak ada update > 2 menit) -> auto FAILED
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
     await prisma.scanJob.updateMany({
       where: {
         status: "RUNNING",
-        started_at: { lt: thirtyMinutesAgo },
+        updated_at: { lt: twoMinutesAgo },
       },
-      data: { status: "FAILED" },
+      data: { status: "FAILED", completed_at: new Date() },
     });
 
     const activeJob = await prisma.scanJob.findFirst({
@@ -812,13 +812,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // 2. Ambil semua customer beserta relasi website & instagram
-    const customers = await prisma.customer.findMany({
-      include: { website: true, instagram: true },
-      orderBy: { created_at: "asc" },
-    });
-
-    const total = customers.length;
+    // 2. Hitung total customer
+    const total = await prisma.customer.count();
 
     if (total === 0) {
       return NextResponse.json({
@@ -843,21 +838,10 @@ export async function POST(req: Request) {
       },
     });
 
-    // 4. Jalankan scan di background tanpa memblokir HTTP response
-    runScanBackground(
-      job.id,
-      scanType,
-      customers,
-      sessionUser?.name || "Superadmin"
-    ).catch((err) => {
-      console.error("Detached scan background error:", err);
-    });
-
-    // 5. Kembalikan response segera sehingga browser tidak timeout
     return NextResponse.json({
       success: true,
       job,
-      message: `Scan ${scanType} dimulai di background.`,
+      message: `Scan ${scanType} dimulai.`,
     });
   } catch (error: any) {
     console.error("Scan API Error:", error);

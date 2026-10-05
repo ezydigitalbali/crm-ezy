@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Play, CheckCircle2, AlertTriangle, XCircle, Clock, Radar, AlertCircle } from "lucide-react";
+import { Play, CheckCircle2, AlertTriangle, XCircle, Clock, Radar, AlertCircle, StopCircle } from "lucide-react";
+import { useToast } from "@/context/ToastContext";
 
 interface ScanJobItem {
   id: string;
@@ -48,7 +49,14 @@ export default function ScanConsoleClient({
   totalCustomers: number;
 }) {
   const router = useRouter();
-  const [isScanning, setIsScanning] = useState(recentJobs[0]?.status === "RUNNING");
+  const { addToast } = useToast();
+
+  const isInitiallyRunning =
+    recentJobs[0]?.status === "RUNNING" &&
+    recentJobs[0]?.started_at &&
+    Date.now() - new Date(recentJobs[0].started_at).getTime() < 180000;
+
+  const [isScanning, setIsScanning] = useState(isInitiallyRunning);
   const [progress, setProgress] = useState(
     recentJobs[0]
       ? recentJobs[0].status === "RUNNING"
@@ -60,70 +68,79 @@ export default function ScanConsoleClient({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const abortRef = useRef<boolean>(false);
 
-  const stopPolling = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-  };
-
-  const pollStatus = async (jobId: string) => {
+  // Jalankan batch runner yang responsif dan tidak terhambat limit serverless Vercel
+  const runBatchLoop = async (jobId: string, scanType: string) => {
     try {
-      const res = await fetch(`/api/scans/status?jobId=${encodeURIComponent(jobId)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.job) {
-        setCurrentJob(data.job);
-        const total = data.job.total || totalCustomers;
-        const pct = total > 0 ? Math.round((data.job.processed / total) * 100) : 0;
-        setProgress(pct);
+      let isCompleted = false;
+      while (!isCompleted && !abortRef.current) {
+        const res = await fetch("/api/scans/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId, scanType, limit: 12 }),
+        });
 
-        if (data.job.status === "COMPLETED") {
-          stopPolling();
-          setIsScanning(false);
-          setProgress(100);
-          setSuccessMessage(
-            `Scan ${data.job.type} berhasil selesai! Memproses ${data.job.processed} customer (${data.job.successful} sukses, ${data.job.needs_review} perlu review, ${data.job.failed} gagal).`
-          );
-          router.refresh();
-        } else if (data.job.status === "FAILED") {
-          stopPolling();
-          setIsScanning(false);
-          setErrorMessage("Proses scan dihentikan atau terjadi kendala pada server.");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Gagal memproses batch scan");
         }
+
+        const data = await res.json();
+        if (data.job) {
+          setCurrentJob(data.job);
+          const total = data.job.total || totalCustomers;
+          const pct = total > 0 ? Math.min(100, Math.round((data.job.processed / total) * 100)) : 0;
+          setProgress(pct);
+        }
+
+        if (data.completed || (data.job && data.job.status !== "RUNNING")) {
+          isCompleted = true;
+          break;
+        }
+
+        // Sedikit jeda 100ms agar browser tetap smooth & responsive
+        await new Promise((r) => setTimeout(r, 100));
       }
-    } catch (err) {
-      console.error("Polling error:", err);
+
+      if (!abortRef.current) {
+        setIsScanning(false);
+        setProgress(100);
+        const doneMsg = "Seluruh database customer berhasil di-scan.";
+        setSuccessMessage(doneMsg);
+        addToast("success", "Scan Selesai", doneMsg);
+        router.refresh();
+      }
+    } catch (err: any) {
+      if (!abortRef.current) {
+        console.error("Batch scan loop error:", err);
+        setIsScanning(false);
+        setErrorMessage(err.message || "Terjadi kendala saat scanning.");
+        addToast("error", "Scan Gagal", err.message || "Terjadi kendala saat scanning.");
+      }
     }
   };
 
   useEffect(() => {
-    // Jika scan masih berjalan saat halaman pertama kali dibuka / direfresh
-    if (recentJobs[0]?.status === "RUNNING") {
-      setIsScanning(true);
-      const j = recentJobs[0];
-      const pct = j.total > 0 ? Math.round((j.processed / j.total) * 100) : 0;
-      setProgress(pct);
-
-      stopPolling();
-      pollIntervalRef.current = setInterval(() => {
-        pollStatus(j.id);
-      }, 1500);
+    // Jika scan masih berjalan saat halaman dibuka
+    if (isInitiallyRunning && recentJobs[0]) {
+      abortRef.current = false;
+      runBatchLoop(recentJobs[0].id, recentJobs[0].type);
     }
 
     return () => {
-      stopPolling();
+      abortRef.current = true;
     };
   }, []);
 
   const handleStartScan = async (scanType: string) => {
-    stopPolling();
+    abortRef.current = false;
     setIsScanning(true);
     setErrorMessage(null);
     setSuccessMessage(null);
     setProgress(0);
+
+    addToast("info", "Memulai Scan", `Menginisialisasi scan ${scanType}...`);
 
     try {
       const res = await fetch("/api/scans/run", {
@@ -146,15 +163,31 @@ export default function ScanConsoleClient({
             : 0;
         setProgress(initialPct);
 
-        // Mulai polling real-time dari database
-        pollIntervalRef.current = setInterval(() => {
-          pollStatus(data.job.id);
-        }, 1500);
+        // Mulai streaming chunk batching secara konsisten
+        runBatchLoop(data.job.id, scanType);
       }
     } catch (e: any) {
       console.error("Start scan error:", e);
       setErrorMessage(e.message || "Gagal menghubungkan ke server scanning.");
+      addToast("error", "Gagal Memulai", e.message || "Gagal menghubungkan ke server scanning.");
       setIsScanning(false);
+    }
+  };
+
+  const handleCancelScan = async () => {
+    abortRef.current = true;
+    setIsScanning(false);
+
+    try {
+      await fetch("/api/scans/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: currentJob?.id }),
+      });
+      addToast("info", "Scan Dibatalkan", "Proses pemindaian telah dihentikan.");
+      router.refresh();
+    } catch (e) {
+      console.error("Failed to cancel scan:", e);
     }
   };
 
@@ -205,40 +238,53 @@ export default function ScanConsoleClient({
             </div>
             <p className="text-xs text-[#1C1B18]/55 mt-0.5">
               {isScanning
-                ? "Sedang memverifikasi website DNS/HTTP, mendeteksi Instagram, & mengevaluasi peluang divisi Production secara real-time..."
+                ? "Sedang memproses website DNS/HTTP, mendeteksi Instagram, & mengevaluasi peluang divisi Production secara real-time..."
                 : currentJob
                 ? `Idle. Scan terakhir (${currentJob.type}) selesai pada ${
                     currentJob.completed_at
                       ? formatTimeSafely(currentJob.completed_at)
                       : "baru saja"
                   }.`
-                : "Idle. Siap menjalankan scan customer 1 per 1."}
+                : "Idle. Siap menjalankan scan customer secara otomatis."}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              disabled={isScanning}
-              onClick={() => handleStartScan("ALL")}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FF7800] text-white text-xs font-semibold hover:bg-[#e66c00] transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-            >
-              <Play size={13} fill="currentColor" />
-              <span>{isScanning ? "Scanning..." : "Start Full Scan"}</span>
-            </button>
-            <button
-              disabled={isScanning}
-              onClick={() => handleStartScan("WEBSITE")}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[#1C1B18]/15 text-xs font-semibold text-[#1C1B18] hover:bg-[#FCFBF0] transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              <span>Websites Only</span>
-            </button>
-            <button
-              disabled={isScanning}
-              onClick={() => handleStartScan("INSTAGRAM")}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[#1C1B18]/15 text-xs font-semibold text-[#1C1B18] hover:bg-[#FCFBF0] transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              <span>Instagram Only</span>
-            </button>
+            {isScanning ? (
+              <button
+                type="button"
+                onClick={handleCancelScan}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 transition-colors shadow-xs cursor-pointer"
+              >
+                <StopCircle size={14} />
+                <span>Hentikan Scan</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleStartScan("ALL")}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FF7800] text-white text-xs font-semibold hover:bg-[#e66c00] transition-colors shadow-xs cursor-pointer"
+                >
+                  <Play size={13} fill="currentColor" />
+                  <span>Start Full Scan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartScan("WEBSITE")}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[#1C1B18]/15 text-xs font-semibold text-[#1C1B18] hover:bg-[#FCFBF0] transition-colors cursor-pointer"
+                >
+                  <span>Websites Only</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartScan("INSTAGRAM")}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[#1C1B18]/15 text-xs font-semibold text-[#1C1B18] hover:bg-[#FCFBF0] transition-colors cursor-pointer"
+                >
+                  <span>Instagram Only</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -265,7 +311,7 @@ export default function ScanConsoleClient({
               {activeProcessed} / {activeTotal} customers processed
             </span>
             <span className="font-number">
-              Concurrency: 4 workers (Realtime Background Sync)
+              {isScanning ? "Pemrosesan Paralel Berjalan (Realtime Sync)" : "Scan Siap"}
             </span>
           </div>
         </div>
