@@ -438,7 +438,7 @@ async function runScanBackground(
   let failed = 0;
   const total = customers.length;
 
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 6;
   let cursor = 0;
   let lastDbSync = Date.now();
 
@@ -467,8 +467,8 @@ async function runScanBackground(
       const customer = customers[cursor++];
       if (!customer) break;
 
-      // Pacing delay (250ms) agar SearXNG & mesin pencari tidak terkena rate limit
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      // Pacing delay (100ms) untuk throughput maksimal tanpa membebani server
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       try {
         let isReviewRequired = false;

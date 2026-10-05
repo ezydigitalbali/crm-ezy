@@ -29,11 +29,10 @@ export default function LoginPage() {
         throw new Error(data.error || "Invalid email or password");
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      // Gunakan window.location.href langsung agar cookie sesi langsung tersinkronisasi 100% tanpa delay dan tanpa butuh 2x klik
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };

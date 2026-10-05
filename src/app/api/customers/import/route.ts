@@ -262,7 +262,8 @@ export async function POST(req: Request) {
               },
             },
           });
-        })
+        }),
+        { timeout: 30000, maxWait: 10000 }
       );
       imported += chunk.length;
     }
