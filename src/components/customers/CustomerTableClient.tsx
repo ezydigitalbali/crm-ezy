@@ -17,7 +17,11 @@ import {
   Edit3,
   UserCheck,
   Check,
-  Plus
+  Plus,
+  Trash2,
+  Edit,
+  CheckSquare,
+  Square
 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LeadStatusBadge from "@/components/ui/LeadStatusBadge";
@@ -27,6 +31,9 @@ import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import CrmUpdateModal, { CrmCustomerTarget, SalesUserOption } from "@/components/crm/CrmUpdateModal";
 import AddCustomerModal from "@/components/customers/AddCustomerModal";
+import EditCustomerModal, { EditCustomerData } from "@/components/customers/EditCustomerModal";
+import DeleteCustomerModal from "@/components/customers/DeleteCustomerModal";
+import BatchUpdateSisterModal from "@/components/customers/BatchUpdateSisterModal";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import Pagination from "@/components/ui/Pagination";
 
@@ -99,6 +106,18 @@ export default function CustomerTableClient({
   const [updateCustomer, setUpdateCustomer] = useState<CrmCustomerTarget | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // Superadmin & Head Management Modals
+  const [editingCustomer, setEditingCustomer] = useState<EditCustomerData | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deleteModalConfig, setDeleteModalConfig] = useState<{
+    isOpen: boolean;
+    mode: "SINGLE" | "SELECTED" | "ALL";
+    customerName?: string;
+    customerId?: string;
+  }>({ isOpen: false, mode: "SINGLE" });
+  const [isBatchSisterModalOpen, setIsBatchSisterModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
@@ -124,6 +143,12 @@ export default function CustomerTableClient({
   useEffect(() => {
     if (authUser) setCurrentUser(authUser);
   }, [authUser]);
+
+  const isSuperadminOrHead =
+    currentUser?.role === "SUPERADMIN" ||
+    currentUser?.role === "HEAD" ||
+    authUser?.role === "SUPERADMIN" ||
+    authUser?.role === "HEAD";
 
   const handleClaimLead = async (customerId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -343,14 +368,45 @@ export default function CustomerTableClient({
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#FF7800] text-white text-xs font-bold hover:bg-[#e66c00] transition-colors shadow-xs shrink-0 cursor-pointer self-start sm:self-auto"
-        >
-          <Plus size={14} />
-          <span>Tambah Data Baru</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {isSuperadminOrHead && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsBatchSisterModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#002236] text-white text-xs font-semibold hover:bg-[#FF7800] transition-colors shadow-xs cursor-pointer"
+                title="Koreksi nama Sister Company sekaligus untuk banyak customer"
+              >
+                <Building2 size={13} />
+                <span>Ubah Sister Co Masal</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setDeleteModalConfig({
+                    isOpen: true,
+                    mode: "ALL",
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
+                title="Hapus seluruh customer dari database"
+              >
+                <Trash2 size={13} />
+                <span>Hapus Semua Customer</span>
+              </button>
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#FF7800] text-white text-xs font-bold hover:bg-[#e66c00] transition-colors shadow-xs shrink-0 cursor-pointer"
+          >
+            <Plus size={14} />
+            <span>Tambah Data Baru</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar (Design Section 27) with Custom Sleek Dropdown Wrappers */}
@@ -472,6 +528,31 @@ export default function CustomerTableClient({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[#1C1B18]/10 bg-[#FCFBF0]/70 text-[11px] font-bold uppercase tracking-wider text-[#1C1B18]/50">
+                {isSuperadminOrHead && (
+                  <th className="py-3 px-3 w-10 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pageIds = paginatedCustomers.map((c) => c.id);
+                        const isAllPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+                        if (isAllPageSelected) {
+                          setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+                        } else {
+                          setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+                        }
+                      }}
+                      className="cursor-pointer text-[#1C1B18]/60 hover:text-[#FF7800] transition-colors"
+                      title="Pilih semua di halaman ini"
+                    >
+                      {paginatedCustomers.length > 0 &&
+                      paginatedCustomers.every((c) => selectedIds.includes(c.id)) ? (
+                        <CheckSquare size={15} className="text-[#FF7800]" />
+                      ) : (
+                        <Square size={15} />
+                      )}
+                    </button>
+                  </th>
+                )}
                 <th className="py-3 px-4">Business</th>
                 <th className="py-3 px-3">Sister Company</th>
                 <th className="py-3 px-3">Sales PIC</th>
@@ -499,8 +580,32 @@ export default function CustomerTableClient({
                   return (
                     <tr 
                       key={c.id} 
-                      className="h-[58px] hover:bg-[#FCFBF0]/70 transition-colors group"
+                      className={`h-[58px] transition-colors group ${
+                        selectedIds.includes(c.id) ? "bg-[#FF7800]/5" : "hover:bg-[#FCFBF0]/70"
+                      }`}
                     >
+                      {/* Checkbox (Khusus Superadmin/Head) */}
+                      {isSuperadminOrHead && (
+                        <td className="py-2.5 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedIds((prev) =>
+                                prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                              );
+                            }}
+                            className="cursor-pointer text-[#1C1B18]/50 hover:text-[#FF7800] transition-colors"
+                          >
+                            {selectedIds.includes(c.id) ? (
+                              <CheckSquare size={15} className="text-[#FF7800]" />
+                            ) : (
+                              <Square size={15} />
+                            )}
+                          </button>
+                        </td>
+                      )}
+
                       {/* Business */}
                       <td className="py-2.5 px-4 font-medium text-[#1C1B18]">
                         <Link 
@@ -634,6 +739,40 @@ export default function CustomerTableClient({
                             <span>Update</span>
                           </button>
 
+                          {/* Tombol Edit Customer & Sister Company (Khusus Superadmin & Head) */}
+                          {isSuperadminOrHead && (
+                            <button
+                              onClick={() => {
+                                setEditingCustomer(c as any);
+                                setIsEditModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#002236]/8 hover:bg-[#002236] text-[#002236] hover:text-white text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                              title="Edit Data Customer & Sister Company"
+                            >
+                              <Edit size={11} />
+                              <span>Edit</span>
+                            </button>
+                          )}
+
+                          {/* Tombol Delete Customer (Khusus Superadmin & Head) */}
+                          {isSuperadminOrHead && (
+                            <button
+                              onClick={() =>
+                                setDeleteModalConfig({
+                                  isOpen: true,
+                                  mode: "SINGLE",
+                                  customerId: c.id,
+                                  customerName: c.business_name,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                              title="Hapus Customer"
+                            >
+                              <Trash2 size={11} />
+                              <span>Hapus</span>
+                            </button>
+                          )}
+
                           <Link
                             href={`/customers/${c.id}`}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#002236]/5 hover:bg-[#002236] hover:text-white text-[#002236] text-[11px] font-semibold transition-colors"
@@ -660,6 +799,90 @@ export default function CustomerTableClient({
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
         pageSizeOptions={[10, 20, 50, 100]}
+      />
+
+      {/* Floating Action Bar saat ada customer yang dicentang */}
+      {selectedIds.length > 0 && isSuperadminOrHead && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#002236] text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-4 text-xs animate-in slide-in-from-bottom-5">
+          <span className="font-semibold font-number">
+            <span className="text-[#FF7800] font-bold">{selectedIds.length}</span> customer dipilih
+          </span>
+
+          <div className="h-4 w-px bg-white/20" />
+
+          <button
+            type="button"
+            onClick={() => setIsBatchSisterModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-[#FF7800] hover:text-white font-semibold transition-colors cursor-pointer"
+          >
+            <Building2 size={13} />
+            <span>Ubah Sister Co ({selectedIds.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setDeleteModalConfig({
+                isOpen: true,
+                mode: "SELECTED",
+              })
+            }
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white font-semibold transition-colors cursor-pointer"
+          >
+            <Trash2 size={13} />
+            <span>Hapus ({selectedIds.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedIds([])}
+            className="text-white/60 hover:text-white text-[11px] underline cursor-pointer ml-1"
+          >
+            Batal
+          </button>
+        </div>
+      )}
+
+      {/* Edit Customer & Sister Company Modal */}
+      <EditCustomerModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingCustomer(null);
+        }}
+        onSuccess={() => router.refresh()}
+        customer={editingCustomer}
+        users={users as any}
+        isSuperadminOrHead={isSuperadminOrHead}
+        availableSisterCompanies={sisterCompanies}
+      />
+
+      {/* Delete Customer Modal (Single / Selected / All) */}
+      <DeleteCustomerModal
+        isOpen={deleteModalConfig.isOpen}
+        onClose={() => setDeleteModalConfig({ isOpen: false, mode: "SINGLE" })}
+        onSuccess={() => {
+          setSelectedIds([]);
+          router.refresh();
+        }}
+        mode={deleteModalConfig.mode}
+        customerName={deleteModalConfig.customerName}
+        customerId={deleteModalConfig.customerId}
+        selectedIds={selectedIds}
+        totalCustomersCount={customers.length}
+      />
+
+      {/* Batch Update Sister Company Modal */}
+      <BatchUpdateSisterModal
+        isOpen={isBatchSisterModalOpen}
+        onClose={() => setIsBatchSisterModalOpen(false)}
+        onSuccess={() => {
+          setSelectedIds([]);
+          router.refresh();
+        }}
+        existingSisterCompanies={sisterCompanies}
+        totalCustomersCount={customers.length}
+        selectedIds={selectedIds}
       />
 
       {/* WhatsApp Pitch Modal */}
