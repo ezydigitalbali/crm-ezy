@@ -16,6 +16,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import { useToast } from "@/context/ToastContext";
 
 interface SisterCompanyProp {
   id: string;
@@ -211,6 +212,8 @@ export default function ImportConsoleClient({
     }
   };
 
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
+
   const handleExecuteImport = async () => {
     if (parsedRows.length === 0) return;
     setIsImporting(true);
@@ -228,18 +231,26 @@ export default function ImportConsoleClient({
         }),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
         setImportResult({ imported: data.imported, skipped: data.skipped, total: data.total });
+        showSuccessToast(
+          `Berhasil mengimpor ${data.imported} prospek baru ke database! (Dilewati: ${data.skipped})`,
+          "Import Selesai"
+        );
         setTimeout(() => {
           router.refresh();
         }, 1500);
       } else {
-        setErrorMessage(data.error || "Gagal mengimpor data ke server.");
+        const msg = data?.error || "Gagal mengimpor data ke server database.";
+        setErrorMessage(msg);
+        showErrorToast(msg, "Import Gagal");
       }
     } catch (err: any) {
       console.error("Import error:", err);
-      setErrorMessage("Terjadi kendala jaringan saat mengimpor data.");
+      const msg = err.message || "Terjadi kendala jaringan saat mengimpor data.";
+      setErrorMessage(msg);
+      showErrorToast(msg, "Kendala Jaringan");
     } finally {
       setIsImporting(false);
     }

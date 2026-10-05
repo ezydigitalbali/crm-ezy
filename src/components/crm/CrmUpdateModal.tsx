@@ -25,6 +25,7 @@ import {
 import WhatsAppIcon from "@/components/ui/WhatsAppIcon";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/context/ToastContext";
 
 export interface CrmCustomerTarget {
   id: string;
@@ -78,6 +79,8 @@ const CHANNELS = [
   { id: "STATUS_CHANGE", label: "Catatan Internal", icon: <FileText size={14} className="text-slate-500" /> },
 ];
 
+import { useUser } from "@/context/UserContext";
+
 export default function CrmUpdateModal({
   isOpen,
   onClose,
@@ -86,7 +89,8 @@ export default function CrmUpdateModal({
   onUpdated,
 }: Props) {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const { user: currentUser } = useUser();
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
   const [selectedStatus, setSelectedStatus] = useState<string>("CONTACTED");
   const [selectedSalesId, setSelectedSalesId] = useState<string>("");
   const [actionType, setActionType] = useState<string>("WHATSAPP_CHAT");
@@ -96,16 +100,6 @@ export default function CrmUpdateModal({
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-
-  // Fetch current user
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.user) setCurrentUser(d.user);
-      })
-      .catch(() => {});
-  }, []);
 
   // Populate form when modal opens
   useEffect(() => {
@@ -152,11 +146,17 @@ export default function CrmUpdateModal({
         throw new Error(data.error || "Gagal memperbarui status CRM");
       }
 
+      showSuccessToast(
+        `Status prospek "${customer.business_name}" berhasil diperbarui ke ${selectedStatus}!`,
+        "Update Berhasil"
+      );
+
       onClose();
       if (onUpdated) onUpdated();
       router.refresh();
     } catch (err: any) {
       setErrorMsg(err.message);
+      showErrorToast(err.message || "Gagal memperbarui status CRM", "Gagal Update");
     } finally {
       setIsSubmitting(false);
     }

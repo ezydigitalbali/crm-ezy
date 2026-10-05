@@ -21,6 +21,7 @@ import {
 import WhatsAppIcon from "@/components/ui/WhatsAppIcon";
 import InstagramIcon from "@/components/ui/InstagramIcon";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import { useToast } from "@/context/ToastContext";
 
 export interface AddCustomerModalProps {
   isOpen: boolean;
@@ -63,6 +64,7 @@ export default function AddCustomerModal({
   users = [],
   currentUser,
 }: AddCustomerModalProps) {
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -174,6 +176,10 @@ export default function AddCustomerModal({
         throw new Error(data.error || "Gagal menyimpan prospek baru.");
       }
 
+      showSuccessToast(
+        `Prospek "${businessName}" berhasil ditambahkan sebagai Data Organik!`,
+        "Prospek Ditambahkan"
+      );
       setSuccessMsg(`Prospek "${businessName}" berhasil ditambahkan sebagai Data Organik!`);
       setTimeout(() => {
         if (onSuccess) onSuccess();
@@ -190,9 +196,11 @@ export default function AddCustomerModal({
         setDealValue("");
         setClosingServices([]);
         setLeadNotes("");
-      }, 1000);
+      }, 700);
     } catch (err: any) {
-      setErrorMsg(err.message || "Terjadi kesalahan saat memproses data.");
+      const msg = err.message || "Terjadi kesalahan saat memproses data.";
+      setErrorMsg(msg);
+      showErrorToast(msg, "Gagal Tambah Prospek");
     } finally {
       setLoading(false);
     }

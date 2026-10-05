@@ -16,6 +16,8 @@ import {
   Handshake
 } from "lucide-react";
 
+import { useUser } from "@/context/UserContext";
+
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Sales Pipeline", href: "/pipeline", icon: TrendingUp, badge: "CRM" },
@@ -27,16 +29,8 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [userRole, setUserRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.user?.role) setUserRole(data.user.role);
-      })
-      .catch(() => {});
-  }, [pathname]);
+  const { user } = useUser();
+  const userRole = user?.role || null;
 
   if (pathname === "/login") {
     return null;

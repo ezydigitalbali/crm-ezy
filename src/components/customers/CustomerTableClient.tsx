@@ -23,6 +23,8 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import LeadStatusBadge from "@/components/ui/LeadStatusBadge";
 import WhatsAppIcon from "@/components/ui/WhatsAppIcon";
 import WhatsAppPitchModal, { PitchCustomerData } from "@/components/common/WhatsAppPitchModal";
+import { useUser } from "@/context/UserContext";
+import { useToast } from "@/context/ToastContext";
 import CrmUpdateModal, { CrmCustomerTarget, SalesUserOption } from "@/components/crm/CrmUpdateModal";
 import AddCustomerModal from "@/components/customers/AddCustomerModal";
 import CustomDropdown from "@/components/ui/CustomDropdown";
@@ -116,14 +118,12 @@ export default function CustomerTableClient({
     selectedCity,
   ]);
 
+  const { user: authUser } = useUser();
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
+
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.user) setCurrentUser(d.user);
-      })
-      .catch(() => {});
-  }, []);
+    if (authUser) setCurrentUser(authUser);
+  }, [authUser]);
 
   const handleClaimLead = async (customerId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -136,12 +136,14 @@ export default function CustomerTableClient({
       });
       const data = await res.json();
       if (data.success) {
+        showSuccessToast("Prospek berhasil di-claim ke daftar tugas Anda!", "Lead Berhasil Di-assign");
         router.refresh();
       } else {
-        alert(data.error || "Gagal mengambil prospek");
+        showErrorToast(data.error || "Gagal mengambil prospek", "Gagal Claim");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Claim lead error:", err);
+      showErrorToast(err?.message || "Kendala koneksi", "Gagal Claim");
     } finally {
       setClaimingId(null);
     }

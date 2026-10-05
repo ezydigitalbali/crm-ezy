@@ -14,27 +14,13 @@ interface CurrentUser {
   specialty?: string;
 }
 
+import { useUser } from "@/context/UserContext";
+
 export default function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [user, setUser] = useState<CurrentUser | null>(null);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data && data.user) {
-          setUser(data.user);
-        } else {
-          setUser(null);
-          if (pathname !== "/login") {
-            router.push("/login");
-          }
-        }
-      })
-      .catch(() => {});
-  }, [pathname, router]);
+  const { user } = useUser();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

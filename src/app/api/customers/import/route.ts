@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getSessionUser } from "@/lib/auth/auth";
 
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 // Helper to extract city from Indonesian address text
 function extractCityFromAddress(addr: string): string {
   if (!addr) return "Bali";
