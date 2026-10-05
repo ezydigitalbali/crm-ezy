@@ -603,7 +603,7 @@ export default function ImportConsoleClient({
           </div>
 
           {importResult && (
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
               <div className="flex items-center gap-2">
                 <Check size={18} className="text-emerald-600 shrink-0" />
                 <span>
@@ -616,6 +616,37 @@ export default function ImportConsoleClient({
               >
                 Lihat di Daftar Customer →
               </button>
+            </div>
+          )}
+
+          {/* Modern Import Progress Modal Overlay */}
+          {isImporting && (
+            <div className="fixed inset-0 z-50 bg-[#002236]/60 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-[#1C1B18]/10 text-center space-y-5 animate-in fade-in zoom-in-95 duration-200">
+                <div className="relative w-16 h-16 mx-auto">
+                  <div className="w-16 h-16 rounded-full border-4 border-[#FF7800]/20 border-t-[#FF7800] animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <UploadCloud size={24} className="text-[#FF7800]" />
+                  </div>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <h3 className="text-base font-bold text-[#1C1B18]">
+                    Memproses & Menyimpan Prospek...
+                  </h3>
+                  <p className="text-xs text-[#1C1B18]/65">
+                    Menyimpan <strong>{parsedRows.length} data</strong> ke cloud Supabase dengan optimasi batching transaksi dan pengecekan duplikasi otomatis.
+                  </p>
+                </div>
+
+                <div className="w-full bg-[#FCFBF0] rounded-full h-2.5 overflow-hidden border border-[#1C1B18]/8">
+                  <div className="bg-[#FF7800] h-full w-full rounded-full animate-pulse" />
+                </div>
+
+                <p className="text-[11px] text-[#1C1B18]/50 italic">
+                  Mohon jangan menutup halaman ini selama proses ingestion berlangsung.
+                </p>
+              </div>
             </div>
           )}
         </div>

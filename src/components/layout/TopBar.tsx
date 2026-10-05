@@ -115,8 +115,9 @@ export default function TopBar() {
                 </span>
               </div>
             ) : (
-              <div className="hidden lg:flex flex-col text-left">
-                <span className="text-[12px] text-[#1C1B18]/40">Verifying session...</span>
+              <div className="hidden lg:flex flex-col text-left space-y-1">
+                <div className="w-20 h-2.5 bg-[#1C1B18]/10 rounded-full animate-pulse" />
+                <div className="w-28 h-2 bg-[#1C1B18]/5 rounded-full animate-pulse" />
               </div>
             )}
           </div>

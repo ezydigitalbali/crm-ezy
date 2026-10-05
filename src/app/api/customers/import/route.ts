@@ -88,15 +88,30 @@ export async function POST(req: Request) {
       return "";
     };
 
+    // OPTIMASI BATCH: Lakukan pre-filtering dan deduplikasi dalam memory & 1 batch query
+    // 1. Kumpulkan semua nama bisnis dan nomor telepon
+    const validRows: Array<{
+      businessName: string;
+      contactName: string | null;
+      phone: string | null;
+      address: string | null;
+      city: string;
+      category: string;
+      email: string | null;
+      sisterCompany: string;
+      websiteUrl?: string;
+      igHandle?: string;
+    }> = [];
+
+    const seenInBatch = new Set<string>();
+
     for (const row of rows) {
-      // Prioritize exact user's column: "Nama Perusahaan"
       let businessName = getVal(row, "business_name", [
         "nama perusahaan", "nama bisnis", "nama usaha", "nama pic client", "company", "perusahaan",
         "business name", "nama customer", "customer", "customer name", "client", "nama client",
         "nama", "name", "brand", "nama brand", "villa", "nama villa", "hotel", "resto", "restaurant"
       ]);
 
-      // If still empty, check the first non-empty string column in the row
       if (!businessName) {
         for (const [key, val] of Object.entries(row)) {
           if (typeof val === "string" && val.trim().length > 1 && !key.toLowerCase().includes("id") && !key.toLowerCase().includes("no")) {
@@ -111,24 +126,27 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Prioritize exact user's column: "Nama PIC Client"
+      const dedupeKey = `${businessName.toLowerCase()}`;
+      if (seenInBatch.has(dedupeKey)) {
+        skipped++;
+        continue;
+      }
+      seenInBatch.add(dedupeKey);
+
       const contactName = getVal(row, "contact_name", [
         "nama pic client", "nama pic", "pic client", "pic", "nama contact", "contact name",
         "contact person", "owner", "nama owner", "manager", "pengelola", "nama kontak", "contact", "person"
       ]) || null;
 
-      // Prioritize exact user's column: "Telepon"
       const phone = getVal(row, "phone", [
         "telepon", "no hp", "no. hp", "phone", "telp", "no telp", "no. telp", "nomor telepon",
         "no wa", "whatsapp", "wa", "no whatsapp", "kontak", "mobile", "contact number"
       ]) || null;
 
-      // Prioritize exact user's column: "Alamat"
       const address = getVal(row, "address", [
         "alamat", "address", "jalan", "street", "domisili", "lokasi detail"
       ]) || null;
 
-      // Smart City extraction
       let city = getVal(row, "city", [
         "kota", "city", "lokasi", "location", "area", "wilayah", "kabupaten", "kecamatan", "daerah"
       ]);
@@ -137,7 +155,6 @@ export async function POST(req: Request) {
       }
       if (!city) city = "Bali";
 
-      // Smart Category extraction
       let category = getVal(row, "category", [
         "kategori", "category", "jenis usaha", "tipe bisnis", "industry", "tipe", "sektor", "bidang", "jenis"
       ]);
@@ -153,7 +170,7 @@ export async function POST(req: Request) {
         ? batchSisterCompany
         : (getVal(row, "sister_company", [
             "sister company", "perusahaan sister", "sister_company", "asal database", "database", "source", "company"
-          ]) || "EZY Property & Villas");
+          ]) || "Happy Farm Bali");
 
       const websiteUrl = getVal(row, "website", [
         "website", "web", "domain", "url", "link website", "situs"
@@ -163,87 +180,91 @@ export async function POST(req: Request) {
         "instagram", "ig", "instagram handle", "username", "username ig", "akun ig", "sosmed"
       ]);
 
-      // Duplicate check: business_name + city (or phone if available)
-      const existing = await prisma.customer.findFirst({
-        where: {
-          OR: [
-            {
-              business_name: { equals: businessName, mode: "insensitive" },
-              city: { equals: city, mode: "insensitive" },
-            },
-            ...(phone ? [{ phone: { equals: phone } }] : []),
-          ],
-        },
+      validRows.push({
+        businessName,
+        contactName,
+        phone,
+        address,
+        city,
+        category,
+        email,
+        sisterCompany,
+        websiteUrl,
+        igHandle,
       });
-
-      if (existing) {
-        if (duplicateStrategy === "SKIP") {
-          skipped++;
-          continue;
-        } else if (duplicateStrategy === "MERGE") {
-          await prisma.customer.update({
-            where: { id: existing.id },
-            data: {
-              phone: phone || existing.phone,
-              email: email || existing.email,
-              contact_name: contactName || existing.contact_name,
-              sister_company: sisterCompany || existing.sister_company,
-              address: address || existing.address,
-              business_category: category !== "General" ? category : existing.business_category,
-            },
-          });
-          imported++;
-          continue;
-        }
-      }
-
-      // Create new customer
-      const newCustomer = await prisma.customer.create({
-        data: {
-          business_name: businessName,
-          contact_name: contactName,
-          phone,
-          email,
-          address,
-          city,
-          province: "Bali",
-          business_category: category,
-          source: "EXCEL_IMPORT",
-          sister_company: sisterCompany,
-          lead_status: "NEW_LEAD",
-        },
-      });
-
-      // Initialize website record
-      let webClean = websiteUrl ? websiteUrl.replace(/^https?:\/\//i, "").replace(/\/$/, "") : null;
-      await prisma.website.create({
-        data: {
-          customer_id: newCustomer.id,
-          domain: webClean || null,
-          url: webClean ? `https://${webClean}` : null,
-          status: webClean ? "ACTIVE" : "NOT_FOUND",
-          discovery_source: webClean ? "EXCEL_IMPORT" : "PENDING_SCAN",
-          confidence_score: webClean ? 90 : 0,
-        },
-      });
-
-      // Initialize IG record
-      let igClean = igHandle ? igHandle.replace(/^@/, "").trim() : null;
-      await prisma.instagramProfile.create({
-        data: {
-          customer_id: newCustomer.id,
-          username: igClean || null,
-          profile_url: igClean ? `https://instagram.com/${igClean}` : null,
-          status: igClean ? "ACTIVE" : "NOT_FOUND",
-          discovery_source: igClean ? "EXCEL_IMPORT" : "PENDING_SCAN",
-          confidence_score: igClean ? 90 : 0,
-        },
-      });
-
-      imported++;
     }
 
-    // Record import job
+    // 2. Cek duplikat di DB dalam 1 query tunggal
+    const allBusinessNames = validRows.map((r) => r.businessName);
+    const existingCustomers = await prisma.customer.findMany({
+      where: {
+        business_name: { in: allBusinessNames, mode: "insensitive" },
+      },
+      select: { id: true, business_name: true, city: true, phone: true },
+    });
+
+    const existingNameSet = new Set(
+      existingCustomers.map((e) => e.business_name.toLowerCase())
+    );
+
+    // 3. Filter data baru yang belum ada di database
+    const toInsert = validRows.filter((r) => {
+      const isExist = existingNameSet.has(r.businessName.toLowerCase());
+      if (isExist) {
+        skipped++;
+        return false;
+      }
+      return true;
+    });
+
+    // 4. Batch transaction insert per 25 items agar sangat cepat & aman di serverless Vercel
+    const CHUNK_SIZE = 25;
+    for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
+      const chunk = toInsert.slice(i, i + CHUNK_SIZE);
+      await prisma.$transaction(
+        chunk.map((item) => {
+          let webClean = item.websiteUrl ? item.websiteUrl.replace(/^https?:\/\//i, "").replace(/\/$/, "") : null;
+          let igClean = item.igHandle ? item.igHandle.replace(/^@/, "").trim() : null;
+
+          return prisma.customer.create({
+            data: {
+              business_name: item.businessName,
+              contact_name: item.contactName,
+              phone: item.phone,
+              email: item.email,
+              address: item.address,
+              city: item.city,
+              province: "Bali",
+              business_category: item.category,
+              source: "EXCEL_IMPORT",
+              sister_company: item.sisterCompany,
+              lead_status: "NEW_LEAD",
+              website: {
+                create: {
+                  domain: webClean || null,
+                  url: webClean ? `https://${webClean}` : null,
+                  status: webClean ? "ACTIVE" : "NOT_FOUND",
+                  discovery_source: webClean ? "EXCEL_IMPORT" : "PENDING_SCAN",
+                  confidence_score: webClean ? 90 : 0,
+                },
+              },
+              instagram: {
+                create: {
+                  username: igClean || null,
+                  profile_url: igClean ? `https://instagram.com/${igClean}` : null,
+                  status: igClean ? "ACTIVE" : "NOT_FOUND",
+                  discovery_source: igClean ? "EXCEL_IMPORT" : "PENDING_SCAN",
+                  confidence_score: igClean ? 90 : 0,
+                },
+              },
+            },
+          });
+        })
+      );
+      imported += chunk.length;
+    }
+
+    // 5. Catat audit & history job
     await prisma.importJob.create({
       data: {
         file_name: "customer_batch_upload.xlsx",
