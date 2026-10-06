@@ -556,11 +556,24 @@ export default function CustomerTableClient({
             </button>
           )}
         </div>
+      </div>
 
-        {/* Counter */}
-        <div className="text-xs text-[#1C1B18]/60 font-medium">
-          Menampilkan <span className="font-number font-bold text-[#1C1B18]">{paginatedCustomers.length}</span> dari{" "}
-          <span className="font-number font-bold text-[#1C1B18]">{filteredCustomers.length}</span> prospek
+      {/* Counter Prospek Di Atas Table Customer */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 text-xs text-[#1C1B18]/70 font-medium">
+        <div className="flex items-center gap-2">
+          <span>
+            Menampilkan <span className="font-number font-bold text-[#1C1B18]">{paginatedCustomers.length}</span> dari{" "}
+            <span className="font-number font-bold text-[#1C1B18]">{filteredCustomers.length}</span> prospek
+          </span>
+          {customers.length !== filteredCustomers.length && (
+            <span className="text-[#1C1B18]/45 text-[11px] font-normal">
+              (difilter dari total <span className="font-number font-semibold text-[#1C1B18]/70">{customers.length}</span> prospek)
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] text-[#1C1B18]/50">
+          Halaman <span className="font-number font-bold text-[#1C1B18]">{currentPage}</span> dari{" "}
+          <span className="font-number font-bold text-[#1C1B18]">{Math.max(1, Math.ceil(filteredCustomers.length / pageSize))}</span>
         </div>
       </div>
 

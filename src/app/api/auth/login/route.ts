@@ -23,19 +23,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    // Create session
-    const { token, expiresAt } = await createSession(user.id);
+    // Create session and audit log concurrently
+    const [sessionResult] = await Promise.all([
+      createSession(user.id),
+      prisma.auditLog.create({
+        data: {
+          user_name: user.name,
+          action: "USER_LOGIN",
+          entity: "User",
+          entity_id: user.id,
+          metadata: JSON.stringify({ role: user.role }),
+        },
+      }).catch((err) => console.error("Audit log error:", err)),
+    ]);
 
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        user_name: user.name,
-        action: "USER_LOGIN",
-        entity: "User",
-        entity_id: user.id,
-        metadata: JSON.stringify({ role: user.role }),
-      },
-    });
+    const { token, expiresAt } = sessionResult;
 
     const response = NextResponse.json({
       success: true,

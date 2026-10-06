@@ -87,14 +87,16 @@ export default function PipelineConsoleClient({
   users,
   activities = [],
   initialSales = "ALL",
+  initialUser = null,
 }: {
   customers: PipelineCustomer[];
   users: SalesUserOption[];
   activities?: ActivityFeedItem[];
   initialSales?: string;
+  initialUser?: any;
 }) {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(initialUser);
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [selectedSales, setSelectedSales] = useState<string>(initialSales);
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
@@ -144,9 +146,15 @@ export default function PipelineConsoleClient({
     return Array.from(set).sort();
   }, [customers]);
 
+  // Only actual sales / operational team members participate in prospects leaderboard.
+  // Superadmin is platform admin only and does not handle prospects.
+  const salesUsers = useMemo(() => {
+    return users.filter((u) => u.role !== "SUPERADMIN");
+  }, [users]);
+
   // Compute leaderboard per sales user (for team benchmark comparison)
   const salesLeaderboard = useMemo(() => {
-    return users.map((u) => {
+    return salesUsers.map((u) => {
       const userCustomers = customers.filter((c) => c.assigned_to_id === u.id);
       const total = userCustomers.length;
       const contacted = userCustomers.filter((c) => c.lead_status !== "NEW_LEAD").length;
@@ -602,8 +610,8 @@ export default function PipelineConsoleClient({
             </span>
           </div>
         ) : (
-          /* Superadmin Tabs per Sales Rep */
-          users.map((u) => {
+          /* Superadmin Tabs per Sales Rep (Excluding Superadmin) */
+          salesUsers.map((u) => {
             const count = customers.filter((c) => c.assigned_to_id === u.id).length;
             const isActive = selectedSales === u.id;
             return (
@@ -1036,7 +1044,7 @@ export default function PipelineConsoleClient({
         isOpen={!!updateCustomer}
         onClose={() => setUpdateCustomer(null)}
         customer={updateCustomer}
-        users={users}
+        users={salesUsers as any}
       />
 
       {/* Add Customer Modal */}
@@ -1044,7 +1052,7 @@ export default function PipelineConsoleClient({
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => router.refresh()}
-        users={users as any}
+        users={salesUsers as any}
         currentUser={currentUser}
       />
     </div>

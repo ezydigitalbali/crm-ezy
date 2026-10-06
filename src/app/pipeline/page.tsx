@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
+import { getSessionUser } from "@/lib/auth/auth";
 import PipelineConsoleClient from "@/components/crm/PipelineConsoleClient";
-import { Handshake, Target, Sparkles, TrendingUp, Users, ShieldCheck } from "lucide-react";
+import { TrendingUp, ShieldCheck, Users, Target } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ interface Props {
 export default async function PipelinePage({ searchParams }: Props) {
   const { sales = "ALL" } = await searchParams;
 
-  const [customers, users, activities] = await Promise.all([
+  const [customers, users, activities, sessionUser] = await Promise.all([
     prisma.customer.findMany({
       include: {
         assigned_to: true,
@@ -52,7 +53,18 @@ export default async function PipelinePage({ searchParams }: Props) {
         },
       },
     }),
+    getSessionUser(),
   ]);
+
+  const serializedUser = sessionUser
+    ? {
+        id: sessionUser.id,
+        name: sessionUser.name,
+        role: sessionUser.role,
+        email: sessionUser.email,
+        specialty: sessionUser.specialty,
+      }
+    : null;
 
   const pipelineCustomers = customers.map((c) => ({
     id: c.id,
@@ -94,23 +106,33 @@ export default async function PipelinePage({ searchParams }: Props) {
     created_at: act.created_at.toISOString(),
   }));
 
+  const isSalesUser = sessionUser?.role === "SALES";
+
   return (
     <div className="space-y-6">
-      {/* Header with Superadmin Helicopter Badge */}
+      {/* Header (Role Aware: Sales CRM Pipeline for Sales, Helicopter View for Management) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
             <TrendingUp size={22} className="text-[#FF7800]" />
             <h2 className="text-2xl font-bold tracking-tight text-[#1C1B18]">
-              Sales CRM Pipeline & Helicopter View
+              {isSalesUser ? "Sales CRM Pipeline" : "Sales CRM Pipeline & Helicopter View"}
             </h2>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#002236] text-white text-[11px] font-bold shadow-2xs">
-              <ShieldCheck size={12} className="text-[#FF7800]" />
-              <span>Superadmin Helicopter View</span>
-            </span>
+            {isSalesUser ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FF7800]/15 text-[#FF7800] border border-[#FF7800]/30 text-[11px] font-bold shadow-2xs">
+                <span>Pipeline Saya</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#002236] text-white text-[11px] font-bold shadow-2xs">
+                <ShieldCheck size={12} className="text-[#FF7800]" />
+                <span>Superadmin Helicopter View</span>
+              </span>
+            )}
           </div>
           <p className="text-xs text-[#1C1B18]/60 mt-1">
-            Monitoring komprehensif performa seluruh sales (Joan, Sandra, Dimas), pantau riwayat pitching WhatsApp, aktivitas negosiasi & status deal closing secara real-time.
+            {isSalesUser
+              ? "Kelola daftar prospek Anda, riwayat pitching WhatsApp, negosiasi dan status deal closing secara real-time."
+              : "Monitoring komprehensif performa seluruh sales (Joan, Sandra, Dimas), pantau riwayat pitching WhatsApp, aktivitas negosiasi & status deal closing secara real-time."}
           </p>
         </div>
 
@@ -138,6 +160,7 @@ export default async function PipelinePage({ searchParams }: Props) {
         users={users}
         activities={serializedActivities}
         initialSales={sales}
+        initialUser={serializedUser}
       />
     </div>
   );

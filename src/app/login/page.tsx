@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, ArrowRight, AlertCircle, Shield } from "lucide-react";
+import { Lock, Mail, ArrowRight, AlertCircle, Shield, Loader2 } from "lucide-react";
+import { useToast } from "@/context/ToastContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,13 +28,27 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Invalid email or password");
+        const errorMsg = data.error || "Email atau kata sandi tidak sesuai";
+        setError(errorMsg);
+        showErrorToast(errorMsg, "Login Gagal");
+        setLoading(false);
+        return;
       }
 
-      // Gunakan window.location.href langsung agar cookie sesi langsung tersinkronisasi 100% tanpa delay dan tanpa butuh 2x klik
-      window.location.href = "/dashboard";
+      showSuccessToast(
+        `Selamat datang kembali, ${data.user?.name || "Tim EZY"}! Mengalihkan ke dashboard...`,
+        "Login Berhasil"
+      );
+
+      // Sinkronkan cookie sesi dan redirect mulus
+      router.push("/dashboard");
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 350);
     } catch (err: any) {
-      setError(err.message);
+      const errorMsg = err?.message || "Terjadi kendala koneksi ke server";
+      setError(errorMsg);
+      showErrorToast(errorMsg, "Gagal Masuk");
       setLoading(false);
     }
   };
@@ -115,10 +131,19 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-10 mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-[#FF7800] text-white text-xs font-semibold hover:bg-[#e66c00] transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+            className="w-full h-10 mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-[#FF7800] text-white text-xs font-bold hover:bg-[#e66c00] transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
           >
-            <span>{loading ? "Verifying..." : "Sign In to Dashboard"}</span>
-            <ArrowRight size={14} />
+            {loading ? (
+              <>
+                <Loader2 size={15} className="animate-spin text-white" />
+                <span>Memverifikasi akun...</span>
+              </>
+            ) : (
+              <>
+                <span>Masuk ke Dashboard</span>
+                <ArrowRight size={14} />
+              </>
+            )}
           </button>
         </form>
       </div>
