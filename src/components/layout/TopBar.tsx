@@ -7,7 +7,15 @@ import Link from "next/link";
 import { useUser } from "@/context/UserContext";
 import ConfirmModal from "@/components/common/ConfirmModal";
 
-export default function TopBar({ onOpenMobile }: { onOpenMobile?: () => void }) {
+export default function TopBar({
+  onOpenMobile,
+  onToggleSidebar,
+  isSidebarCollapsed = false,
+}: {
+  onOpenMobile?: () => void;
+  onToggleSidebar?: () => void;
+  isSidebarCollapsed?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,17 +61,25 @@ export default function TopBar({ onOpenMobile }: { onOpenMobile?: () => void }) 
   const isSuperadmin = user?.role === "SUPERADMIN";
   const isHead = user?.role === "HEAD";
 
+  const handleSidebarButton = () => {
+    if (onToggleSidebar) {
+      onToggleSidebar();
+    } else if (onOpenMobile) {
+      onOpenMobile();
+    }
+  };
+
   return (
     <>
       <header className="h-16 px-4 sm:px-6 md:px-8 border-b border-[#1C1B18]/8 bg-[#FCFBF0] flex items-center justify-between sticky top-0 z-20">
         {/* Title & Context */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {onOpenMobile && (
+          {(onToggleSidebar || onOpenMobile) && (
             <button
               type="button"
-              onClick={onOpenMobile}
-              className="lg:hidden p-2 -ml-2 rounded-lg text-[#1C1B18]/70 hover:bg-[#1C1B18]/5 transition-colors cursor-pointer shrink-0"
-              title="Buka Menu Navigasi"
+              onClick={handleSidebarButton}
+              className="p-2 -ml-2 rounded-lg text-[#1C1B18]/70 hover:bg-[#1C1B18]/5 transition-colors cursor-pointer shrink-0"
+              title={isSidebarCollapsed ? "Buka Sidebar" : "Tutup / Ciutkan Sidebar"}
             >
               <Menu size={20} />
             </button>
