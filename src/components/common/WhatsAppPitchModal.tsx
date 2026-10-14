@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import WhatsAppIcon from "@/components/ui/WhatsAppIcon";
-import { X, Copy, Check, ExternalLink, Building2, Sparkles, MessageSquare, Phone, Globe, Camera, Share2, Search } from "lucide-react";
+import { X, Copy, Check, ExternalLink, Building2, Sparkles, MessageSquare, Phone, Globe, Camera, Share2, Search, User } from "lucide-react";
+import { useUser } from "@/context/UserContext";
 
 export interface PitchCustomerData {
   id: string;
@@ -34,10 +35,20 @@ export function cleanPhoneNumber(rawPhone: string | null | undefined): string {
 }
 
 export default function WhatsAppPitchModal({ isOpen, onClose, customer }: Props) {
+  const { user } = useUser();
+  const [salesName, setSalesName] = useState<string>("Joan");
   const [activeTemplate, setActiveTemplate] = useState<"website" | "production" | "social" | "seo" | "intro">("website");
   const [customPhone, setCustomPhone] = useState("");
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Sync sales name automatically from logged in user session
+  useEffect(() => {
+    if (user?.name) {
+      const firstName = user.name.trim().split(" ")[0];
+      setSalesName(firstName || user.name);
+    }
+  }, [user]);
 
   // Sync phone & template when customer opens
   useEffect(() => {
@@ -59,42 +70,44 @@ export default function WhatsAppPitchModal({ isOpen, onClose, customer }: Props)
     }
   }, [customer]);
 
-  // Re-generate text whenever activeTemplate or customer changes
+  // Re-generate text whenever activeTemplate, customer, or salesName changes
   useEffect(() => {
     if (!customer) return;
 
-    const contactGreeting = customer.contact_name ? `kak ${customer.contact_name}` : "Bapak/Ibu";
-    const businessName = customer.business_name || "bisnis Bapak/Ibu";
+    const rawContact = customer.contact_name?.trim();
+    const contactGreeting = rawContact ? `kak ${rawContact}` : "kak";
+    const businessName = customer.business_name || "bisnis kakak";
     const sisterCompany = customer.sister_company || "sister company kami di Bali";
     const igMention = customer.instagram_username ? `@${customer.instagram_username}` : "Instagram";
     const webMention = customer.website_domain || "website resmi";
+    const sName = salesName.trim() || "Joan";
 
     let text = "";
 
     switch (activeTemplate) {
       case "website":
-        text = `Halo ${contactGreeting}, salam hangat dari tim EZY Digital Bali! 😊\n\nKami menghubungi kakak karena ${businessName} merupakan relasi & partner dari sister company kami, *${sisterCompany}*.\n\nSaat tim kami melihat profil Instagram ${igMention} yang sangat aktif dan menarik, kami perhatikan ${businessName} belum memiliki website resmi (official website).\n\nDi Bali, memiliki official website sangat krusial untuk:\n1. Meningkatkan direct booking/order langsung tanpa potongan komisi OTA / platform pihak ketiga (15-20%).\n2. Mendapatkan calon tamu & klien dari Google Search (SEO) lokal & internasional.\n3. Meningkatkan kredibilitas & citra profesional brand.\n\nDi EZY Digital Bali, kami menyediakan pembuatan website modern yang cepat, mobile-friendly, dan terintegrasi sistem reservasi WhatsApp.\n\nApakah ada waktu 5-10 menit untuk kami kirimkan demo desain website atau ngobrol santai kak? Terima kasih banyak ${contactGreeting}! 🙏`;
+        text = `Halo ${contactGreeting}, salam kenal ya! Aku ${sName} dari tim EZY Digital Bali. 😊\n\nDapat kontak kakak dari relasi ekosistem sister company kami, *${sisterCompany}*.\n\nKebetulan saat tim kami mampir ke profil Instagram ${igMention}, konsep & tempat ${businessName} kelihatan menarik banget! Cuma kami perhatikan sepertinya ${businessName} belum memiliki official website ya kak?\n\nDi Bali, official website ngebantu banget untuk:\n1. Direct Booking / Order langsung tanpa potongan komisi platform pihak ketiga (15-20%).\n2. Memudahkan calon tamu & klien menemukan ${businessName} langsung di Google Search.\n3. Meningkatkan kredibilitas brand agar terlihat lebih profesional dan terpercaya.\n\nKira-kira kalau kakak ada waktu senggang, boleh ya kita ngobrol atau diskusi santai sebentar? Siapa tahu ada insight yang pas dan bermanfaat untuk kebutuhan ${businessName} ke depannya.\n\nTerima kasih banyak ya ${contactGreeting}! 🙏`;
         break;
 
       case "production":
-        text = `Halo ${contactGreeting}, salam hangat dari tim EZY Digital Bali! 😊\n\nKami dari tim media kreatif EZY Digital, sister company dari *${sisterCompany}*.\n\nMelihat properti & tempat ${businessName} yang sangat menawan dan berpotensi tinggi, kami ingin menawarkan solusi visual media premium untuk mendongkrak okupansi dan daya pikat tamu/investor:\n\n📸 Architectural & Interior Photography profesional\n🎥 Cinematic Video Tour (Reels & YouTube 4K)\n🚁 Drone Aerial Footage (FPV & lanskap Bali)\n🌐 3D Virtual Walkthrough Tour untuk buyer luar negeri\n\nApakah boleh kami kirimkan link portofolio media properti & hospitality yang pernah kami kerjakan kak? Terima kasih banyak ${contactGreeting}! 🙏`;
+        text = `Halo ${contactGreeting}, salam kenal ya! Aku ${sName} dari tim EZY Digital Bali. 😊\n\nDapat kontak kakak melalui relasi sister company kami, *${sisterCompany}*.\n\nMelihat tempat dan properti ${businessName} yang estetik dan punya daya tarik tinggi, sayang banget rasanya kalau potensi visualnya belum terekspos maksimal ke calon tamu atau klien.\n\nDi EZY Digital, tim kreatif kami terbiasa memproduksi visual media untuk industri hospitality & bisnis di Bali, mulai dari:\n📸 Architectural & Interior Photography profesional\n🎥 Cinematic Video Tour (Reels & Shorts 4K)\n🚁 Drone Aerial Footage (lanskap & ambience)\n\nKira-kira kalau kakak ada waktu luang minggu ini, boleh ya kita ngobrol atau diskusi santai sebentar? Sekalian sharing ide dan konsep visual kreatif yang cocok untuk mengangkat daya pikat ${businessName}.\n\nTerima kasih banyak ya ${contactGreeting}! 🙏`;
         break;
 
       case "social":
-        text = `Halo ${contactGreeting}, salam kenal dari tim EZY Digital Bali! 😊\n\nKami menghubungi kakak sebagai bagian dari keluarga ekosistem sister company kami, *${sisterCompany}*.\n\nWebsite resmi ${businessName} (${webMention}) sudah terlihat sangat profesional! Namun kami perhatikan akun Instagram kelihatannya belum sempat di-update beberapa waktu terakhir.\n\nDi industri Bali yang sangat dinamis, konsistensi sosial media sangat menentukan agar customer tidak beralih ke kompetitor. Kami di EZY Digital menyediakan layanan Social Media Management lengkap:\n✨ Content Calendar, Copywriting & Storytelling\n✨ Photoshoot & Video Reels bulanan on-site di Bali\n✨ Desain feed estetik & manajemen posting terjadwal\n\nBoleh kami buatkan 1 sample ide konten gratis khusus untuk ${businessName} kak? Terima kasih banyak ${contactGreeting}! 🙏`;
+        text = `Halo ${contactGreeting}, salam kenal ya! Aku ${sName} dari tim EZY Digital Bali. 😊\n\nDapat kontak kakak dari relasi sister company kami, *${sisterCompany}*.\n\nWebsite resmi ${businessName} (${webMention}) sudah terlihat sangat rapi dan profesional! Cuma kami perhatikan untuk akun media sosialnya kelihatannya belum sempat di-update rutin ya kak?\n\nMelihat tren di Bali yang dinamis banget, kehadiran konten visual yang aktif dan konsisten sangat ngebantu menjaga awareness audiens agar tidak beralih ke kompetitor.\n\nKira-kira kalau kakak senggang, boleh ya kita luangkan waktu sebentar buat diskusi santai bareng? Siapa tahu kita bisa sharing ide kreatif buat naikin engagement Instagram ${businessName}.\n\nTerima kasih banyak ya ${contactGreeting}! 🙏`;
         break;
 
       case "seo":
-        text = `Halo ${contactGreeting}, salam sukses dari tim EZY Digital Bali! 😊\n\nKami menghubungi kakak dari ekosistem sister company kami, *${sisterCompany}*.\n\nLuar biasa melihat website (${webMention}) dan Instagram ${igMention} dari ${businessName} sudah aktif berjalan berdampingan!\n\nTim SEO EZY Digital Bali ingin menawarkan Free Website Audit untuk mengecek potensi ranking Google Search di kata kunci strategis turis & ekspatriat Bali. Tujuannya agar traffic organik dan inquiry langsung bisa bertambah signifikan tanpa biaya iklan berlebih.\n\nBoleh kami buatkan laporan audit singkatnya (gratis) untuk ${businessName} kak? Terima kasih banyak ${contactGreeting}! 🙏`;
+        text = `Halo ${contactGreeting}, salam kenal ya! Aku ${sName} dari tim EZY Digital Bali. 😊\n\nDapat kontak kakak melalui relasi sister company kami, *${sisterCompany}*.\n\nKeren banget melihat website (${webMention}) dan Instagram ${igMention} dari ${businessName} sudah aktif berjalan berdampingan!\n\nDari tim kami di EZY Digital, kami ingin mengajak kakak diskusi santai seputar optimasi Google Search (SEO) untuk ${businessName}, khususnya di kata kunci pencarian turis & ekspatriat yang sedang mencari tempat/layanan di Bali. Tujuannya agar traffic organik dan inquiry langsung bisa bertambah tanpa harus selalu bergantung pada budget iklan.\n\nKira-kira kalau kakak ada waktu senggang, boleh ya kita ngobrol atau diskusi santai sebentar? Senang banget kalau bisa sharing dan bertukar ide bareng kakak seputar potensi ${businessName}.\n\nTerima kasih banyak ya ${contactGreeting}! 🙏`;
         break;
 
       case "intro":
-        text = `Halo ${contactGreeting}, salam kenal dari EZY Digital Bali! 😊\n\nKami mendapatkan kontak kakak melalui sister company kami, *${sisterCompany}*.\n\nKami adalah agensi digital di Bali yang fokus membantu pelaku bisnis memaksimalkan website, media sosial, dan produksi visual (foto/video/drone).\n\nSenang bisa terhubung dengan ${businessName}. Boleh kami simpan kontak kakak untuk berbagi update dan solusi digital bila sewaktu-waktu dibutuhkan?\n\nSukses selalu untuk ${businessName} ya kak! 🙏`;
+        text = `Halo ${contactGreeting}, salam kenal ya! Aku ${sName} dari tim EZY Digital Bali. 😊\n\nDapat kontak kakak melalui relasi ekosistem sister company kami, *${sisterCompany}*.\n\nKami di EZY Digital adalah partner agensi digital lokal di Bali yang fokus mendampingi rekan-rekan bisnis dalam pengembangan website, produksi media kreatif (foto/video/drone), dan digital marketing.\n\nSenang banget bisa terhubung dengan ${businessName}. Kalau kakak ada waktu luang, boleh ya kapan-kapan kita ngobrol atau diskusi santai seputar potensi kolaborasi dan solusi digital yang mungkin pas untuk ${businessName} ke depannya.\n\nSukses selalu buat ${businessName} ya kak! 🙏`;
         break;
     }
 
     setMessage(text);
-  }, [activeTemplate, customer]);
+  }, [activeTemplate, customer, salesName]);
 
   if (!isOpen || !customer) return null;
 
@@ -202,23 +215,40 @@ export default function WhatsAppPitchModal({ isOpen, onClose, customer }: Props)
             </div>
           </div>
 
-          {/* Contact & Phone input row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#1C1B18]/8">
+          {/* Contact, Sales Pengirim, & Phone input row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[#1C1B18]/8">
             <div>
               <span className="text-[11px] font-semibold text-[#1C1B18]/60 block">
                 Contact Person
               </span>
-              <span className="text-xs font-semibold text-[#1C1B18]">
-                {customer.contact_name || "Owner / Pengelola (Belum ada nama spesifik)"}
+              <span className="text-xs font-semibold text-[#1C1B18] truncate block">
+                {customer.contact_name ? `Kak ${customer.contact_name}` : "Owner / Pengelola"}
               </span>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-semibold text-[#1C1B18]/60 block">
+                Sales Pengirim (Perkenalan)
+              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <User size={13} className="text-[#FF7800] shrink-0" />
+                <input
+                  type="text"
+                  value={salesName}
+                  onChange={(e) => setSalesName(e.target.value)}
+                  placeholder="Nama Anda..."
+                  className="text-xs font-bold text-[#002236] bg-white border border-[#1C1B18]/20 rounded px-2 py-0.5 w-full focus:outline-none focus:border-[#FF7800]"
+                  title="Nama sales yang diperkenalkan pada pesan WhatsApp"
+                />
+              </div>
             </div>
 
             <div>
               <span className="text-[11px] font-semibold text-[#1C1B18]/60 block">
                 Nomor WhatsApp Target
               </span>
-              <div className="flex items-center gap-2 mt-0.5">
-                <Phone size={13} className="text-[#25D366]" />
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Phone size={13} className="text-[#25D366] shrink-0" />
                 <input
                   type="text"
                   value={customPhone}
