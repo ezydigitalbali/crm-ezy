@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
@@ -122,8 +122,75 @@ export default function CustomerTableClient({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
 
-  // Reset page when any filter changes
+  // Tracking flags to prevent resetting page when restoring state from sessionStorage
+  const isInitializedRef = useRef(false);
+  const isRestoringRef = useRef(false);
+
+  // Restore filter & pagination state from sessionStorage when navigating back
   useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("crm_customer_table_state");
+      if (saved) {
+        const data = JSON.parse(saved);
+        isRestoringRef.current = true;
+
+        if (!initialSearch && typeof data.search === "string") {
+          setSearch(data.search);
+        }
+        if (!initialOpportunity && typeof data.selectedQuickFilter === "string") {
+          setSelectedQuickFilter(data.selectedQuickFilter);
+        }
+        if (!initialWebsite && typeof data.selectedWebsite === "string") {
+          setSelectedWebsite(data.selectedWebsite);
+        }
+        if (!initialInstagram && typeof data.selectedInstagram === "string") {
+          setSelectedInstagram(data.selectedInstagram);
+        }
+        if (typeof data.selectedSisterCompany === "string") {
+          setSelectedSisterCompany(data.selectedSisterCompany);
+        }
+        if (typeof data.selectedLeadStatus === "string") {
+          setSelectedLeadStatus(data.selectedLeadStatus);
+        }
+        if (typeof data.selectedSalesPic === "string") {
+          setSelectedSalesPic(data.selectedSalesPic);
+        }
+        if (typeof data.selectedCategory === "string") {
+          setSelectedCategory(data.selectedCategory);
+        }
+        if (typeof data.selectedCity === "string") {
+          setSelectedCity(data.selectedCity);
+        }
+        if (typeof data.pageSize === "number" && data.pageSize > 0) {
+          setPageSize(data.pageSize);
+        }
+        if (typeof data.currentPage === "number" && data.currentPage > 0) {
+          setCurrentPage(data.currentPage);
+        }
+
+        if (typeof data.scrollY === "number" && data.scrollY > 0) {
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              window.scrollTo({ top: data.scrollY, behavior: "instant" as ScrollBehavior });
+            }, 80);
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to restore customer table state:", e);
+    } finally {
+      setTimeout(() => {
+        isInitializedRef.current = true;
+        isRestoringRef.current = false;
+      }, 150);
+    }
+  }, [initialSearch, initialWebsite, initialInstagram, initialOpportunity]);
+
+  // Reset page when any filter changes, but NOT during initial hydration
+  useEffect(() => {
+    if (!isInitializedRef.current || isRestoringRef.current) {
+      return;
+    }
     setCurrentPage(1);
   }, [
     search,
@@ -136,6 +203,85 @@ export default function CustomerTableClient({
     selectedCategory,
     selectedCity,
   ]);
+
+  // Save current filter and pagination state to sessionStorage
+  useEffect(() => {
+    if (!isInitializedRef.current || isRestoringRef.current) return;
+    try {
+      const stateToSave = {
+        search,
+        selectedQuickFilter,
+        selectedWebsite,
+        selectedInstagram,
+        selectedSisterCompany,
+        selectedLeadStatus,
+        selectedSalesPic,
+        selectedCategory,
+        selectedCity,
+        currentPage,
+        pageSize,
+        scrollY: window.scrollY || document.documentElement.scrollTop || 0,
+      };
+      sessionStorage.setItem("crm_customer_table_state", JSON.stringify(stateToSave));
+    } catch (e) {
+      console.error("Failed to save customer table state:", e);
+    }
+  }, [
+    search,
+    selectedQuickFilter,
+    selectedWebsite,
+    selectedInstagram,
+    selectedSisterCompany,
+    selectedLeadStatus,
+    selectedSalesPic,
+    selectedCategory,
+    selectedCity,
+    currentPage,
+    pageSize,
+  ]);
+
+  // Record scroll position right before navigating to detail page
+  const handleRecordScrollBeforeNavigate = () => {
+    try {
+      const currentScroll = window.scrollY || document.documentElement.scrollTop || 0;
+      const saved = sessionStorage.getItem("crm_customer_table_state");
+      let base = saved ? JSON.parse(saved) : {};
+      base = {
+        ...base,
+        search,
+        selectedQuickFilter,
+        selectedWebsite,
+        selectedInstagram,
+        selectedSisterCompany,
+        selectedLeadStatus,
+        selectedSalesPic,
+        selectedCategory,
+        selectedCity,
+        currentPage,
+        pageSize,
+        scrollY: currentScroll,
+      };
+      sessionStorage.setItem("crm_customer_table_state", JSON.stringify(base));
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const handleResetFilters = () => {
+    try {
+      sessionStorage.removeItem("crm_customer_table_state");
+    } catch (e) {}
+    setSelectedQuickFilter("all");
+    setSelectedSisterCompany("ALL");
+    setSelectedLeadStatus("ALL");
+    setSelectedSalesPic("ALL");
+    setSelectedWebsite("ALL");
+    setSelectedInstagram("ALL");
+    setSelectedCategory("ALL");
+    setSelectedCity("ALL");
+    setSearch("");
+    setCurrentPage(1);
+  };
 
   const { user: authUser } = useUser();
   const { success: showSuccessToast, error: showErrorToast } = useToast();
@@ -279,7 +425,9 @@ export default function CustomerTableClient({
 
   // Paginated items
   const paginatedCustomers = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
+    const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
+    const safePage = Math.min(Math.max(1, currentPage), totalPages);
+    const start = (safePage - 1) * pageSize;
     return filteredCustomers.slice(start, start + pageSize);
   }, [filteredCustomers, currentPage, pageSize]);
 
@@ -537,19 +685,11 @@ export default function CustomerTableClient({
             selectedInstagram !== "ALL" ||
             selectedCategory !== "ALL" ||
             selectedCity !== "ALL" ||
+            selectedQuickFilter !== "all" ||
             search.trim() !== "") && (
             <button
               type="button"
-              onClick={() => {
-                setSelectedSisterCompany("ALL");
-                setSelectedLeadStatus("ALL");
-                setSelectedSalesPic("ALL");
-                setSelectedWebsite("ALL");
-                setSelectedInstagram("ALL");
-                setSelectedCategory("ALL");
-                setSelectedCity("ALL");
-                setSearch("");
-              }}
+              onClick={handleResetFilters}
               className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold underline cursor-pointer px-1 py-1"
             >
               Reset Filter
@@ -665,6 +805,7 @@ export default function CustomerTableClient({
                       <td className="py-2.5 px-4 font-medium text-[#1C1B18]">
                         <Link 
                           href={`/customers/${c.id}`}
+                          onClick={handleRecordScrollBeforeNavigate}
                           className="font-semibold text-xs text-[#1C1B18] hover:text-[#FF7800] block truncate max-w-[200px]"
                         >
                           {c.business_name}
@@ -830,6 +971,7 @@ export default function CustomerTableClient({
 
                           <Link
                             href={`/customers/${c.id}`}
+                            onClick={handleRecordScrollBeforeNavigate}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#002236]/5 hover:bg-[#002236] hover:text-white text-[#002236] text-[11px] font-semibold transition-colors"
                             title="Lihat Dossier Lengkap"
                           >

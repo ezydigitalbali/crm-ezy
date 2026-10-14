@@ -21,6 +21,7 @@ import {
   Building2
 } from "lucide-react";
 import CustomerPitchButton from "@/components/customers/CustomerPitchButton";
+import CustomerDetailBackButton from "@/components/customers/CustomerDetailBackButton";
 
 export const dynamic = "force-dynamic";
 
@@ -94,13 +95,7 @@ export default async function CustomerDetailPage({ params }: Props) {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Back button */}
-      <Link
-        href="/customers"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1C1B18]/60 hover:text-[#FF7800] transition-colors"
-      >
-        <ArrowLeft size={14} />
-        <span>Back to Customer Directory</span>
-      </Link>
+      <CustomerDetailBackButton />
 
       {/* Header Dossier */}
       <div className="bg-white rounded-xl p-6 border border-[#1C1B18]/10 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
