@@ -81,6 +81,18 @@ const CHANNELS = [
 
 import { useUser } from "@/context/UserContext";
 
+const formatRupiahDisplay = (val: string | number | null | undefined): string => {
+  if (val === null || val === undefined || val === "") return "";
+  const clean = String(val).replace(/[^0-9]/g, "");
+  if (!clean) return "";
+  return Number(clean).toLocaleString("id-ID");
+};
+
+const parseRupiahNumber = (val: string): number | null => {
+  const clean = val.replace(/[^0-9]/g, "");
+  return clean ? Number(clean) : null;
+};
+
 export default function CrmUpdateModal({
   isOpen,
   onClose,
@@ -107,8 +119,8 @@ export default function CrmUpdateModal({
       setSelectedStatus(customer.lead_status || "CONTACTED");
       setSelectedSalesId(customer.assigned_to_id || "");
       setNotes(customer.lead_notes || "");
-      setOfferingValue(customer.offering_value ? String(customer.offering_value) : "");
-      setDealValue(customer.deal_value ? String(customer.deal_value) : "");
+      setOfferingValue(customer.offering_value ? formatRupiahDisplay(customer.offering_value) : "");
+      setDealValue(customer.deal_value ? formatRupiahDisplay(customer.deal_value) : "");
       setSelectedServices(
         customer.closing_services
           ? customer.closing_services.split(",").map((s) => s.trim()).filter(Boolean)
@@ -134,8 +146,8 @@ export default function CrmUpdateModal({
           leadStatus: selectedStatus,
           assignedToId: selectedSalesId || null,
           notes: notes.trim(),
-          offeringValue: offeringValue.trim() ? parseFloat(offeringValue) : null,
-          dealValue: dealValue.trim() ? parseFloat(dealValue) : null,
+          offeringValue: parseRupiahNumber(offeringValue),
+          dealValue: parseRupiahNumber(dealValue),
           closingServices: selectedServices,
           actionType,
         }),
@@ -340,18 +352,17 @@ export default function CrmUpdateModal({
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#1C1B18]/40">Rp</span>
                   <input
-                    type="number"
-                    min="0"
-                    step="100000"
+                    type="text"
+                    inputMode="numeric"
                     value={offeringValue}
-                    onChange={(e) => setOfferingValue(e.target.value)}
-                    placeholder="0"
+                    onChange={(e) => setOfferingValue(formatRupiahDisplay(e.target.value))}
+                    placeholder="Contoh: 325.000"
                     className="w-full h-9 pl-9 pr-3 bg-[#FCFBF0]/40 border border-[#1C1B18]/15 rounded-lg text-xs font-number font-semibold text-[#002236] focus:outline-none focus:border-[#FF7800]"
                   />
                 </div>
-                {offeringValue && Number(offeringValue) > 0 && (
+                {offeringValue && parseRupiahNumber(offeringValue) !== null && parseRupiahNumber(offeringValue)! > 0 && (
                   <span className="text-[10.5px] text-amber-700 font-semibold font-number block">
-                    Rp {Number(offeringValue).toLocaleString("id-ID")}
+                    Rp {parseRupiahNumber(offeringValue)!.toLocaleString("id-ID")}
                   </span>
                 )}
               </div>
@@ -364,18 +375,17 @@ export default function CrmUpdateModal({
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#1C1B18]/40">Rp</span>
                   <input
-                    type="number"
-                    min="0"
-                    step="100000"
+                    type="text"
+                    inputMode="numeric"
                     value={dealValue}
-                    onChange={(e) => setDealValue(e.target.value)}
-                    placeholder="0"
+                    onChange={(e) => setDealValue(formatRupiahDisplay(e.target.value))}
+                    placeholder="Contoh: 325.000"
                     className="w-full h-9 pl-9 pr-3 bg-[#FCFBF0]/40 border border-[#1C1B18]/15 rounded-lg text-xs font-number font-semibold text-[#002236] focus:outline-none focus:border-[#FF7800]"
                   />
                 </div>
-                {dealValue && Number(dealValue) > 0 && (
+                {dealValue && parseRupiahNumber(dealValue) !== null && parseRupiahNumber(dealValue)! > 0 && (
                   <span className="text-[10.5px] text-emerald-700 font-bold font-number block">
-                    Rp {Number(dealValue).toLocaleString("id-ID")}
+                    Rp {parseRupiahNumber(dealValue)!.toLocaleString("id-ID")}
                   </span>
                 )}
               </div>

@@ -40,12 +40,23 @@ export async function POST(req: Request) {
       ? closingServices 
       : currentCustomer.closing_services;
 
+    // Helper to safely parse numeric value from raw numbers or formatted strings (e.g. "325.000")
+    const parseNumericValue = (val: any): number | null => {
+      if (val === undefined || val === null || val === "") return null;
+      if (typeof val === "number") return isNaN(val) ? null : val;
+      const str = String(val).trim();
+      const cleaned = str.replace(/[^0-9]/g, "");
+      if (!cleaned) return null;
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? null : num;
+    };
+
     const parsedOffering = offeringValue !== undefined 
-      ? (offeringValue !== null && offeringValue !== "" ? parseFloat(String(offeringValue)) : null)
+      ? parseNumericValue(offeringValue)
       : currentCustomer.offering_value;
 
     const parsedDeal = dealValue !== undefined 
-      ? (dealValue !== null && dealValue !== "" ? parseFloat(String(dealValue)) : null)
+      ? parseNumericValue(dealValue)
       : currentCustomer.deal_value;
 
     // Update customer CRM fields

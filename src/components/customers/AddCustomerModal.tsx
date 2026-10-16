@@ -57,6 +57,18 @@ const BALI_CITIES = [
   "Luar Bali / Nasional",
 ];
 
+const formatRupiahDisplay = (val: string | number | null | undefined): string => {
+  if (val === null || val === undefined || val === "") return "";
+  const clean = String(val).replace(/[^0-9]/g, "");
+  if (!clean) return "";
+  return Number(clean).toLocaleString("id-ID");
+};
+
+const parseRupiahNumber = (val: string): number | null => {
+  const clean = val.replace(/[^0-9]/g, "");
+  return clean ? Number(clean) : null;
+};
+
 export default function AddCustomerModal({
   isOpen,
   onClose,
@@ -154,8 +166,8 @@ export default function AddCustomerModal({
         business_category: finalCategory,
         lead_status: leadStatus,
         assigned_to_id: isSales ? currentUser?.id : (assignedToId === "UNASSIGNED" ? null : assignedToId),
-        offering_value: offeringValue ? parseFloat(offeringValue) : null,
-        deal_value: dealValue ? parseFloat(dealValue) : null,
+        offering_value: parseRupiahNumber(offeringValue),
+        deal_value: parseRupiahNumber(dealValue),
         closing_services: closingServices,
         lead_notes: leadNotes.trim() || null,
         website_url: websiteStatus === "NOT_FOUND" ? null : (websiteUrl.trim() || null),
@@ -608,13 +620,19 @@ export default function AddCustomerModal({
                     Rp
                   </span>
                   <input
-                    type="number"
-                    placeholder="Contoh: 15000000"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Contoh: 15.000.000"
                     value={offeringValue}
-                    onChange={(e) => setOfferingValue(e.target.value)}
+                    onChange={(e) => setOfferingValue(formatRupiahDisplay(e.target.value))}
                     className="w-full h-9 pl-9 pr-3 bg-white border border-[#1C1B18]/20 rounded-lg text-xs font-number focus:outline-none focus:border-[#FF7800]"
                   />
                 </div>
+                {offeringValue && parseRupiahNumber(offeringValue) !== null && parseRupiahNumber(offeringValue)! > 0 && (
+                  <span className="text-[10px] text-amber-700 font-semibold font-number block mt-1">
+                    Rp {parseRupiahNumber(offeringValue)!.toLocaleString("id-ID")}
+                  </span>
+                )}
               </div>
 
               <div>
@@ -626,13 +644,19 @@ export default function AddCustomerModal({
                     Rp
                   </span>
                   <input
-                    type="number"
-                    placeholder="Contoh: 20000000 (Jika deal)"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Contoh: 20.000.000 (Jika deal)"
                     value={dealValue}
-                    onChange={(e) => setDealValue(e.target.value)}
+                    onChange={(e) => setDealValue(formatRupiahDisplay(e.target.value))}
                     className="w-full h-9 pl-9 pr-3 bg-white border border-[#1C1B18]/20 rounded-lg text-xs font-number focus:outline-none focus:border-[#FF7800]"
                   />
                 </div>
+                {dealValue && parseRupiahNumber(dealValue) !== null && parseRupiahNumber(dealValue)! > 0 && (
+                  <span className="text-[10px] text-emerald-700 font-bold font-number block mt-1">
+                    Rp {parseRupiahNumber(dealValue)!.toLocaleString("id-ID")}
+                  </span>
+                )}
               </div>
 
               <div className="md:col-span-2">

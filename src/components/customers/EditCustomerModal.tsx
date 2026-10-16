@@ -77,6 +77,18 @@ const DEFAULT_SISTER_COMPANIES = [
   "EZY Property",
 ];
 
+const formatRupiahDisplay = (val: string | number | null | undefined): string => {
+  if (val === null || val === undefined || val === "") return "";
+  const clean = String(val).replace(/[^0-9]/g, "");
+  if (!clean) return "";
+  return Number(clean).toLocaleString("id-ID");
+};
+
+const parseRupiahNumber = (val: string): number | null => {
+  const clean = val.replace(/[^0-9]/g, "");
+  return clean ? Number(clean) : null;
+};
+
 export default function EditCustomerModal({
   isOpen,
   onClose,
@@ -158,8 +170,8 @@ export default function EditCustomerModal({
       setInstagramUsername(customer.instagram?.username || "");
       setLeadStatus(customer.lead_status || "NEW_LEAD");
       setAssignedToId(customer.assigned_to_id || "UNASSIGNED");
-      setOfferingValue(customer.offering_value !== null && customer.offering_value !== undefined ? String(customer.offering_value) : "");
-      setDealValue(customer.deal_value !== null && customer.deal_value !== undefined ? String(customer.deal_value) : "");
+      setOfferingValue(customer.offering_value !== null && customer.offering_value !== undefined ? formatRupiahDisplay(customer.offering_value) : "");
+      setDealValue(customer.deal_value !== null && customer.deal_value !== undefined ? formatRupiahDisplay(customer.deal_value) : "");
       setClosingServices(
         customer.closing_services ? customer.closing_services.split(",").map((s) => s.trim()) : []
       );
@@ -208,8 +220,8 @@ export default function EditCustomerModal({
           instagram_username: instagramUsername.trim() || null,
           lead_status: leadStatus,
           assigned_to_id: assignedToId === "UNASSIGNED" ? null : assignedToId,
-          offering_value: offeringValue ? parseFloat(offeringValue) : null,
-          deal_value: dealValue ? parseFloat(dealValue) : null,
+          offering_value: parseRupiahNumber(offeringValue),
+          deal_value: parseRupiahNumber(dealValue),
           closing_services: closingServices.length > 0 ? closingServices.join(",") : null,
           lead_notes: leadNotes.trim() || null,
         }),
@@ -510,26 +522,44 @@ export default function EditCustomerModal({
                 <label className="block font-semibold text-[#1C1B18] mb-1">
                   Offering Value (Rp)
                 </label>
-                <input
-                  type="number"
-                  value={offeringValue}
-                  onChange={(e) => setOfferingValue(e.target.value)}
-                  placeholder="5000000"
-                  className="w-full px-3 py-2 rounded-lg border border-[#1C1B18]/20 focus:border-[#FF7800] outline-hidden text-xs bg-white font-number"
-                />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#1C1B18]/40">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={offeringValue}
+                    onChange={(e) => setOfferingValue(formatRupiahDisplay(e.target.value))}
+                    placeholder="Contoh: 325.000"
+                    className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#1C1B18]/20 focus:border-[#FF7800] outline-hidden text-xs bg-white font-number"
+                  />
+                </div>
+                {offeringValue && parseRupiahNumber(offeringValue) !== null && parseRupiahNumber(offeringValue)! > 0 && (
+                  <span className="text-[10px] text-amber-700 font-semibold font-number block mt-1">
+                    Rp {parseRupiahNumber(offeringValue)!.toLocaleString("id-ID")}
+                  </span>
+                )}
               </div>
 
               <div>
                 <label className="block font-semibold text-[#1C1B18] mb-1">
                   Deal Value (Rp)
                 </label>
-                <input
-                  type="number"
-                  value={dealValue}
-                  onChange={(e) => setDealValue(e.target.value)}
-                  placeholder="4500000"
-                  className="w-full px-3 py-2 rounded-lg border border-[#1C1B18]/20 focus:border-[#FF7800] outline-hidden text-xs bg-white font-number"
-                />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#1C1B18]/40">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={dealValue}
+                    onChange={(e) => setDealValue(formatRupiahDisplay(e.target.value))}
+                    placeholder="Contoh: 325.000"
+                    className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#1C1B18]/20 focus:border-[#FF7800] outline-hidden text-xs bg-white font-number"
+                  />
+                </div>
+                {dealValue && parseRupiahNumber(dealValue) !== null && parseRupiahNumber(dealValue)! > 0 && (
+                  <span className="text-[10px] text-emerald-700 font-bold font-number block mt-1">
+                    Rp {parseRupiahNumber(dealValue)!.toLocaleString("id-ID")}
+                  </span>
+                )}
               </div>
             </div>
 

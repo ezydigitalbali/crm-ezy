@@ -103,10 +103,26 @@ export async function PUT(
           ? (assigned_to_id === "UNASSIGNED" || !assigned_to_id ? null : assigned_to_id)
           : existing.assigned_to_id,
         offering_value: offering_value !== undefined
-          ? (offering_value === null || offering_value === "" ? null : parseFloat(String(offering_value)))
+          ? ((val: any) => {
+              if (val === undefined || val === null || val === "") return null;
+              if (typeof val === "number") return isNaN(val) ? null : val;
+              const str = String(val).trim();
+              const cleaned = str.replace(/[^0-9]/g, "");
+              if (!cleaned) return null;
+              const num = parseFloat(cleaned);
+              return isNaN(num) ? null : num;
+            })(offering_value)
           : existing.offering_value,
         deal_value: deal_value !== undefined
-          ? (deal_value === null || deal_value === "" ? null : parseFloat(String(deal_value)))
+          ? ((val: any) => {
+              if (val === undefined || val === null || val === "") return null;
+              if (typeof val === "number") return isNaN(val) ? null : val;
+              const str = String(val).trim();
+              const cleaned = str.replace(/[^0-9]/g, "");
+              if (!cleaned) return null;
+              const num = parseFloat(cleaned);
+              return isNaN(num) ? null : num;
+            })(deal_value)
           : existing.deal_value,
         closing_services: closing_services !== undefined
           ? (Array.isArray(closing_services) ? closing_services.join(",") : closing_services || null)

@@ -62,13 +62,19 @@ export async function POST(req: Request) {
       ? closing_services
       : null;
 
-    const parsedOffering = offering_value !== undefined && offering_value !== null && offering_value !== ""
-      ? parseFloat(String(offering_value))
-      : null;
+    // Helper to safely parse numeric value from raw numbers or formatted strings (e.g. "325.000")
+    const parseNumericValue = (val: any): number | null => {
+      if (val === undefined || val === null || val === "") return null;
+      if (typeof val === "number") return isNaN(val) ? null : val;
+      const str = String(val).trim();
+      const cleaned = str.replace(/[^0-9]/g, "");
+      if (!cleaned) return null;
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? null : num;
+    };
 
-    const parsedDeal = deal_value !== undefined && deal_value !== null && deal_value !== ""
-      ? parseFloat(String(deal_value))
-      : null;
+    const parsedOffering = parseNumericValue(offering_value);
+    const parsedDeal = parseNumericValue(deal_value);
 
     // Bersihkan username instagram jika mengandung '@'
     const cleanIgUsername = instagram_username
