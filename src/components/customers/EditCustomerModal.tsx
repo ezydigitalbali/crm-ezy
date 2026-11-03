@@ -490,7 +490,7 @@ export default function EditCustomerModal({
                     { value: "NEW_LEAD", label: "New Lead (Belum Dikontak)" },
                     { value: "CONTACTED", label: "Contacted (Sudah Dikontak)" },
                     { value: "PITCHING", label: "Pitching (Sedang Presentasi)" },
-                    { value: "NEGOTIATION", label: "Negotiation (Negosiasi Harga)" },
+                    { value: "NEGOTIATION", label: "Meeting (Sudah Bertemu / Pitching)" },
                     { value: "DEAL_WON", label: "Deal Won (Closing Berhasil)" },
                     { value: "DEAL_LOST", label: "Deal Lost (Belum Berjodoh)" },
                   ]}

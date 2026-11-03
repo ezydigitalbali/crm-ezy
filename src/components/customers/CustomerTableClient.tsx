@@ -597,7 +597,7 @@ export default function CustomerTableClient({
               { value: "NEW_LEAD", label: "New Lead" },
               { value: "CONTACTED", label: "Contacted" },
               { value: "FOLLOW_UP", label: "Follow Up" },
-              { value: "NEGOTIATION", label: "Negotiation" },
+              { value: "NEGOTIATION", label: "Meeting (Pitching)" },
               { value: "SUCCESS", label: "Success / Won" },
               { value: "FAILED", label: "Failed / Lost" },
             ]}

@@ -67,7 +67,7 @@ const STAGES = [
   { id: "NEW_LEAD", label: "New Lead", desc: "Belum pernah dihubungi", color: "border-slate-300 text-slate-700 bg-slate-50", activeColor: "bg-slate-800 text-white border-slate-800" },
   { id: "CONTACTED", label: "Contacted", desc: "Sudah kontak via WA/Telepon", color: "border-blue-200 text-blue-800 bg-blue-50/60", activeColor: "bg-blue-600 text-white border-blue-600" },
   { id: "FOLLOW_UP", label: "Follow Up", desc: "Dalam proses diskusi aktif", color: "border-amber-200 text-amber-800 bg-amber-50/60", activeColor: "bg-amber-600 text-white border-amber-600" },
-  { id: "NEGOTIATION", label: "Negotiation", desc: "Tahap proposal & penawaran", color: "border-orange-200 text-orange-800 bg-orange-50/60", activeColor: "bg-[#FF7800] text-white border-[#FF7800]" },
+  { id: "NEGOTIATION", label: "Meeting", desc: "Sudah bertemu / pitching langsung", color: "border-orange-200 text-orange-800 bg-orange-50/60", activeColor: "bg-[#FF7800] text-white border-[#FF7800]" },
   { id: "SUCCESS", label: "Won / Deal Closing", desc: "Deal berhasil disepakati", color: "border-emerald-200 text-emerald-800 bg-emerald-50/60", activeColor: "bg-emerald-600 text-white border-emerald-600" },
   { id: "FAILED", label: "Failed / Lost", desc: "Tidak berminat / batal", color: "border-rose-200 text-rose-800 bg-rose-50/60", activeColor: "bg-rose-600 text-white border-rose-600" },
 ];

@@ -32,7 +32,7 @@ export const LEAD_STATUS_CONFIG: Record<LeadStatusType, { label: string; bg: str
     icon: Clock,
   },
   NEGOTIATION: {
-    label: "Negosiasi Proposal",
+    label: "Meeting / Pitching",
     bg: "bg-purple-50",
     text: "text-purple-700",
     border: "border-purple-200",

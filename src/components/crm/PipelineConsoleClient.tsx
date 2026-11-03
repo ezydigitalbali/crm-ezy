@@ -158,10 +158,11 @@ export default function PipelineConsoleClient({
       const userCustomers = customers.filter((c) => c.assigned_to_id === u.id);
       const total = userCustomers.length;
       const contacted = userCustomers.filter((c) => c.lead_status !== "NEW_LEAD").length;
-      const negotiation = userCustomers.filter((c) => c.lead_status === "NEGOTIATION").length;
+      const pitching = userCustomers.filter((c) => c.lead_status === "NEGOTIATION").length;
       const won = userCustomers.filter((c) => c.lead_status === "SUCCESS").length;
       const failed = userCustomers.filter((c) => c.lead_status === "FAILED").length;
-      const winRate = total > 0 ? Math.round((won / total) * 100) : 0;
+      // Win Rate: Closing / Pitching (Meeting), default 0 if no pitching yet
+      const winRate = pitching > 0 ? Math.round((won / pitching) * 100) : 0;
 
       const totalDealWon = userCustomers
         .filter((c) => c.lead_status === "SUCCESS")
@@ -191,7 +192,7 @@ export default function PipelineConsoleClient({
         user: u,
         total,
         contacted,
-        negotiation,
+        pitching,
         won,
         failed,
         winRate,
@@ -437,17 +438,25 @@ export default function PipelineConsoleClient({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-white/10 text-center">
+                <div className="grid grid-cols-5 gap-1.5 mt-3 pt-2.5 border-t border-white/10 text-center">
                   <div>
-                    <span className="text-[10px] text-white/60 block">Prospek</span>
+                    <span className="text-[9px] text-white/60 block truncate" title="Prospek">Prospek</span>
                     <strong className="text-xs font-bold font-number text-white">{item.total}</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-white/60 block">Pitching</span>
-                    <strong className="text-xs font-bold font-number text-[#FF7800]">{item.contacted}</strong>
+                    <span className="text-[9px] text-sky-300/80 block truncate" title="Contacted">Contacted</span>
+                    <strong className="text-xs font-bold font-number text-sky-300">{item.contacted}</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-white/60 block">Win Rate</span>
+                    <span className="text-[9px] text-[#FF7800]/90 block truncate" title="Pitching">Pitching</span>
+                    <strong className="text-xs font-bold font-number text-[#FF7800]">{item.pitching}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-emerald-300/80 block truncate" title="Closing">Closing</span>
+                    <strong className="text-xs font-bold font-number text-emerald-300">{item.won}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-emerald-300/80 block truncate" title="Win Rate">Win Rate</span>
                     <strong className="text-xs font-bold font-number text-emerald-300">{item.winRate}%</strong>
                   </div>
                 </div>
@@ -703,15 +712,15 @@ export default function PipelineConsoleClient({
             <span className="text-[10px] text-amber-500">Proses diskusi</span>
           </div>
 
-          {/* Negotiation */}
+          {/* Meeting / Pitching */}
           <div className="bg-white p-3.5 rounded-xl border border-[#FF7800]/30 shadow-xs">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7800] block">
-              Negotiation
+              Pitching (Meeting)
             </span>
             <span className="font-number text-xl font-bold text-[#FF7800] block mt-1">
               {kpis.negotiation}
             </span>
-            <span className="text-[10px] text-[#FF7800]/80">Proposal / Penawaran</span>
+            <span className="text-[10px] text-[#FF7800]/80">Sudah bertemu / presentasi</span>
           </div>
 
           {/* Success Won */}
@@ -795,7 +804,7 @@ export default function PipelineConsoleClient({
               { value: "NEW_LEAD", label: "New Lead" },
               { value: "CONTACTED", label: "Contacted" },
               { value: "FOLLOW_UP", label: "Follow Up" },
-              { value: "NEGOTIATION", label: "Negotiation" },
+              { value: "NEGOTIATION", label: "Meeting (Pitching)" },
               { value: "SUCCESS", label: "Success / Won" },
               { value: "FAILED", label: "Failed / Lost" },
             ]}
