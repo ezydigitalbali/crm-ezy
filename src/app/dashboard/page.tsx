@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { redirect } from "next/navigation";
+import { autoExpireStaleFollowUps } from "@/lib/crm/autoExpireFollowUps";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,9 @@ export default async function DashboardPage() {
   if (!sessionUser) {
     redirect("/login");
   }
+
+  // Jalankan auto-expire untuk follow-up >= 7 hari
+  await autoExpireStaleFollowUps();
 
   const [
     totalCustomers,

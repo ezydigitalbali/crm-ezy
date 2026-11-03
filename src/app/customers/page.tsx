@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import CustomerTableClient from "@/components/customers/CustomerTableClient";
 import { UploadCloud, Play, Plus } from "lucide-react";
+import { autoExpireStaleFollowUps } from "@/lib/crm/autoExpireFollowUps";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,9 @@ interface SearchParamsProps {
 }
 
 export default async function CustomersPage({ searchParams }: SearchParamsProps) {
+  // Auto-expire prospek FOLLOW_UP >= 7 hari
+  await autoExpireStaleFollowUps();
+
   const resolvedParams = await searchParams;
   const initialSearch = resolvedParams.q || "";
   const initialWebsite = resolvedParams.website || "";

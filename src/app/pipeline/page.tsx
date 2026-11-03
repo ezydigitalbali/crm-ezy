@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getSessionUser } from "@/lib/auth/auth";
 import PipelineConsoleClient from "@/components/crm/PipelineConsoleClient";
+import { autoExpireStaleFollowUps } from "@/lib/crm/autoExpireFollowUps";
 import { TrendingUp, ShieldCheck, Users, Target } from "lucide-react";
 import Link from "next/link";
 
@@ -12,6 +13,9 @@ interface Props {
 
 export default async function PipelinePage({ searchParams }: Props) {
   const { sales = "ALL" } = await searchParams;
+
+  // Jalankan auto-expire untuk prospek FOLLOW_UP yang >= 7 hari tanpa respon/perubahan
+  await autoExpireStaleFollowUps();
 
   const [customers, users, activities, sessionUser] = await Promise.all([
     prisma.customer.findMany({
