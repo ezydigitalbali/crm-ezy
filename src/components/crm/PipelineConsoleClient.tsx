@@ -709,7 +709,7 @@ export default function PipelineConsoleClient({
             <span className="font-number text-xl font-bold text-amber-800 block mt-1">
               {kpis.followUp}
             </span>
-            <span className="text-[10px] text-amber-500">Proses diskusi</span>
+            <span className="text-[10px] text-amber-500">Belum balas / kontak ulang</span>
           </div>
 
           {/* Meeting / Pitching */}

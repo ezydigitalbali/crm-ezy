@@ -587,7 +587,7 @@ export default function AddCustomerModal({
                   options={[
                     { value: "NEW_LEAD", label: "⚡ Prospek Baru (NEW_LEAD)", badge: "Baru" },
                     { value: "CONTACTED", label: "💬 Sudah Dihubungi (CONTACTED)", badge: "Contacted" },
-                    { value: "FOLLOW_UP", label: "🔄 Follow Up Berjalan (FOLLOW_UP)", badge: "Follow Up" },
+                    { value: "FOLLOW_UP", label: "🔄 Follow Up Ulang (FOLLOW_UP)", badge: "Follow Up" },
                     { value: "NEGOTIATION", label: "🤝 Sudah Bertemu / Pitching (Meeting)", badge: "Meeting" },
                     { value: "SUCCESS", label: "🏆 Closing Deal Berhasil (SUCCESS)", badge: "Won / Deal" },
                     { value: "FAILED", label: "❌ Tidak Tertarik / Batal (FAILED)", badge: "Lost" },
