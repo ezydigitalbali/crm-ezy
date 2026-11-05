@@ -107,7 +107,8 @@ export default function PipelineConsoleClient({
   const [selectedSales, setSelectedSales] = useState<string>(initialSales);
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedSisterCompany, setSelectedSisterCompany] = useState<string>("ALL");
-  const [timeFilter, setTimeFilter] = useState<"ALL" | "TODAY" | "WEEK" | "MONTH">("ALL");
+  const [selectedMonth, setSelectedMonth] = useState<string>("ALL"); // "ALL" or "1".."12"
+  const [selectedYear, setSelectedYear] = useState<string>("ALL"); // "ALL" or "2026", "2025"
   const [search, setSearch] = useState("");
   const [showActivityFeed, setShowActivityFeed] = useState(false);
 
@@ -139,7 +140,7 @@ export default function PipelineConsoleClient({
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedSales, selectedStatus, selectedSisterCompany, timeFilter, search]);
+  }, [selectedSales, selectedStatus, selectedSisterCompany, selectedMonth, selectedYear, search]);
 
   const isSales = currentUser?.role === "SALES";
   const isSuperadmin = currentUser?.role === "SUPERADMIN" || currentUser?.role === "HEAD";
@@ -159,10 +160,32 @@ export default function PipelineConsoleClient({
     return users.filter((u) => u.role !== "SUPERADMIN");
   }, [users]);
 
+  // Filter customer list by selected month and year
+  const filterByDateRange = (dateStr?: string | null) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (selectedMonth !== "ALL") {
+      if (d.getMonth() + 1 !== Number(selectedMonth)) return false;
+    }
+    if (selectedYear !== "ALL") {
+      if (d.getFullYear() !== Number(selectedYear)) return false;
+    }
+    return true;
+  };
+
   // Compute leaderboard per sales user (for team benchmark comparison)
   const salesLeaderboard = useMemo(() => {
     return salesUsers.map((u) => {
-      const userCustomers = customers.filter((c) => c.assigned_to_id === u.id);
+      let userCustomers = customers.filter((c) => c.assigned_to_id === u.id);
+      
+      // If month / year filter applied, filter prospects relevant to that period
+      if (selectedMonth !== "ALL" || selectedYear !== "ALL") {
+        userCustomers = userCustomers.filter((c) => {
+          const dStr = c.last_contacted_at || c.updated_at || c.created_at;
+          return filterByDateRange(dStr);
+        });
+      }
+
       const total = userCustomers.length;
       // Contacted: Prospek yang saat ini sedang dalam proses kontak / follow up aktif (CONTACTED atau FOLLOW_UP)
       const contacted = userCustomers.filter((c) => c.lead_status === "CONTACTED" || c.lead_status === "FOLLOW_UP").length;
@@ -171,7 +194,7 @@ export default function PipelineConsoleClient({
       const failed = userCustomers.filter((c) => c.lead_status === "FAILED").length;
       // Pitching yang saat ini sedang aktif (tahap meeting)
       const activePitching = userCustomers.filter((c) => c.lead_status === "NEGOTIATION").length;
-      // Total yang pernah melalui pitching: aktif meeting + deal won (sukses) + yang pernah pitching tapi failed
+      // Total yang pernah melalui pitching: aktif meeting + deal won (sukses)
       const totalEverPitched = userCustomers.filter((c) => c.has_ever_pitched || c.lead_status === "NEGOTIATION" || c.lead_status === "SUCCESS").length;
       const displayPitching = Math.max(activePitching + won, totalEverPitched);
       // Win Rate: Closing dibagi total prospek yang pernah/sedang dipitching
@@ -215,7 +238,7 @@ export default function PipelineConsoleClient({
         lastContactedAt: lastContactCust?.last_contacted_at || null,
       };
     });
-  }, [users, customers]);
+  }, [users, customers, selectedMonth, selectedYear]);
 
   // Unassigned count
   const unassignedCount = useMemo(() => {
@@ -249,29 +272,10 @@ export default function PipelineConsoleClient({
         return false;
       }
 
-      // Time filter (Hari, Minggu, Bulan berdasarkan update/kontak terakhir)
-      if (timeFilter !== "ALL") {
+      // Filter per Bulan & Tahun
+      if (selectedMonth !== "ALL" || selectedYear !== "ALL") {
         const dateStr = c.last_contacted_at || c.updated_at || c.created_at;
-        if (!dateStr) return false;
-        const targetDate = new Date(dateStr);
-        const now = new Date();
-        const diffMs = now.getTime() - targetDate.getTime();
-        const diffHours = diffMs / (1000 * 3600);
-
-        if (timeFilter === "TODAY") {
-          // 24 jam terakhir atau hari ini
-          const isSameDay =
-            targetDate.getDate() === now.getDate() &&
-            targetDate.getMonth() === now.getMonth() &&
-            targetDate.getFullYear() === now.getFullYear();
-          if (!isSameDay && diffHours > 24) return false;
-        } else if (timeFilter === "WEEK") {
-          // 7 hari terakhir
-          if (diffHours > 7 * 24) return false;
-        } else if (timeFilter === "MONTH") {
-          // 30 hari terakhir
-          if (diffHours > 30 * 24) return false;
-        }
+        if (!filterByDateRange(dateStr)) return false;
       }
 
       // Search query
@@ -287,7 +291,7 @@ export default function PipelineConsoleClient({
 
       return true;
     });
-  }, [customers, isSales, currentUser, selectedSales, selectedStatus, selectedSisterCompany, timeFilter, search]);
+  }, [customers, isSales, currentUser, selectedSales, selectedStatus, selectedSisterCompany, selectedMonth, selectedYear, search]);
 
   // Paginated customers for current page
   const paginatedCustomers = useMemo(() => {
@@ -295,15 +299,26 @@ export default function PipelineConsoleClient({
     return filteredCustomers.slice(start, start + pageSize);
   }, [filteredCustomers, currentPage, pageSize]);
 
-  // Compute metrics for the currently active pool
+  // Compute metrics for the currently active pool (accounting for month/year filter)
   const currentSalesPool = useMemo(() => {
+    let pool = customers;
     if (isSales && currentUser) {
-      return customers.filter((c) => c.assigned_to_id === currentUser.id);
+      pool = customers.filter((c) => c.assigned_to_id === currentUser.id);
+    } else if (selectedSales === "UNASSIGNED") {
+      pool = customers.filter((c) => !c.assigned_to_id);
+    } else if (selectedSales !== "ALL") {
+      pool = customers.filter((c) => c.assigned_to_id === selectedSales);
     }
-    if (selectedSales === "ALL") return customers;
-    if (selectedSales === "UNASSIGNED") return customers.filter((c) => !c.assigned_to_id);
-    return customers.filter((c) => c.assigned_to_id === selectedSales);
-  }, [customers, isSales, currentUser, selectedSales]);
+
+    if (selectedMonth !== "ALL" || selectedYear !== "ALL") {
+      pool = pool.filter((c) => {
+        const dStr = c.last_contacted_at || c.updated_at || c.created_at;
+        return filterByDateRange(dStr);
+      });
+    }
+
+    return pool;
+  }, [customers, isSales, currentUser, selectedSales, selectedMonth, selectedYear]);
 
   const kpis = useMemo(() => {
     const total = currentSalesPool.length;
@@ -859,53 +874,39 @@ export default function PipelineConsoleClient({
             ]}
           />
 
-          {/* Time Filter Segmented Buttons (Hari, Minggu, Bulan) */}
-          <div className="flex items-center bg-[#FCFBF0] p-0.5 rounded-lg border border-[#1C1B18]/15 text-[11px] font-semibold">
-            <button
-              type="button"
-              onClick={() => setTimeFilter("ALL")}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                timeFilter === "ALL"
-                  ? "bg-[#002236] text-white shadow-xs font-bold"
-                  : "text-[#1C1B18]/60 hover:text-[#1C1B18]"
-              }`}
-            >
-              Semua Waktu
-            </button>
-            <button
-              type="button"
-              onClick={() => setTimeFilter("TODAY")}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                timeFilter === "TODAY"
-                  ? "bg-[#002236] text-white shadow-xs font-bold"
-                  : "text-[#1C1B18]/60 hover:text-[#1C1B18]"
-              }`}
-            >
-              Hari Ini
-            </button>
-            <button
-              type="button"
-              onClick={() => setTimeFilter("WEEK")}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                timeFilter === "WEEK"
-                  ? "bg-[#002236] text-white shadow-xs font-bold"
-                  : "text-[#1C1B18]/60 hover:text-[#1C1B18]"
-              }`}
-            >
-              Minggu Ini (7h)
-            </button>
-            <button
-              type="button"
-              onClick={() => setTimeFilter("MONTH")}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                timeFilter === "MONTH"
-                  ? "bg-[#002236] text-white shadow-xs font-bold"
-                  : "text-[#1C1B18]/60 hover:text-[#1C1B18]"
-              }`}
-            >
-              Bulan Ini (30h)
-            </button>
-          </div>
+          {/* Filter Bulan Kalender (Januari - Desember) */}
+          <CustomDropdown
+            prefix="Bulan"
+            value={selectedMonth}
+            onChange={setSelectedMonth}
+            options={[
+              { value: "ALL", label: "Semua Bulan" },
+              { value: "1", label: "Januari" },
+              { value: "2", label: "Februari" },
+              { value: "3", label: "Maret" },
+              { value: "4", label: "April" },
+              { value: "5", label: "Mei" },
+              { value: "6", label: "Juni" },
+              { value: "7", label: "Juli" },
+              { value: "8", label: "Agustus" },
+              { value: "9", label: "September" },
+              { value: "10", label: "Oktober" },
+              { value: "11", label: "November" },
+              { value: "12", label: "Desember" },
+            ]}
+          />
+
+          {/* Filter Tahun */}
+          <CustomDropdown
+            prefix="Tahun"
+            value={selectedYear}
+            onChange={setSelectedYear}
+            options={[
+              { value: "ALL", label: "Semua Tahun" },
+              { value: "2026", label: "2026" },
+              { value: "2025", label: "2025" },
+            ]}
+          />
         </div>
 
         <div className="text-xs text-[#1C1B18]/60 font-medium">
