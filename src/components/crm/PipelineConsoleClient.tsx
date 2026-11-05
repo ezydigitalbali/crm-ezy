@@ -260,9 +260,18 @@ export default function PipelineConsoleClient({
   // Filter customers by active sales rep, status, sister company, search query
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
-      // If user is sales, strictly only show their own leads!
+      // If user is sales:
       if (isSales && currentUser) {
-        if (c.assigned_to_id !== currentUser.id) return false;
+        // Jika sedang filter status FAILED (atau ALL): tampilkan lead milik sendiri ATAU lead gagal yang pernah di-pitching/di-handle oleh sales ini
+        if (selectedStatus === "FAILED") {
+          const isMine = c.assigned_to_id === currentUser.id;
+          const wasHandledByMe = c.pitching_handler_id === currentUser.id || c.last_handler_name === currentUser.name;
+          const isRecyclePool = !c.assigned_to_id && c.lead_status === "FAILED";
+          if (!isMine && !wasHandledByMe && !isRecyclePool) return false;
+        } else {
+          // Untuk status aktif biasa, hanya tampilkan prospek yang di-assign ke diri sendiri
+          if (c.assigned_to_id !== currentUser.id) return false;
+        }
       } else {
         // Superadmin filter
         if (selectedSales !== "ALL") {
