@@ -1000,6 +1000,16 @@ export default function PipelineConsoleClient({
                         <div className="flex flex-col gap-1 items-start">
                           <LeadStatusBadge status={c.lead_status} size="sm" />
                           
+                          {/* Recycle Pool Indicator if unassigned & FAILED */}
+                          {!c.assigned_to_id && c.lead_status === "FAILED" && (
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold font-number bg-slate-100 text-slate-700 border border-slate-300"
+                              title="Prospek kadaluarsa / gagal dilepas kembali ke pool unassigned. Siap diambil & di-follow up ulang!"
+                            >
+                              ♻️ Pool Recycle
+                            </span>
+                          )}
+
                           {/* Expiry Warning Indicator if in FOLLOW_UP */}
                           {c.lead_status === "FOLLOW_UP" && (() => {
                             const refDate = c.last_contacted_at || c.updated_at;
