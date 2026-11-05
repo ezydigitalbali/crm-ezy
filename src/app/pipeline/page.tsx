@@ -24,8 +24,11 @@ export default async function PipelinePage({ searchParams }: Props) {
         website: true,
         instagram: true,
         activities: {
-          orderBy: { created_at: "desc" },
-          take: 3,
+          select: {
+            action_type: true,
+            status_to: true,
+            notes: true,
+          },
         },
       },
       orderBy: [
@@ -89,6 +92,8 @@ export default async function PipelinePage({ searchParams }: Props) {
     instagram_username: c.instagram?.username || null,
     opportunity_type: c.website?.status === "NOT_FOUND" ? "website" : "social",
     activities_count: c.activities.length,
+    has_ever_pitched: c.activities.some((a) => a.status_to === "NEGOTIATION" || a.action_type === "MEETING") || c.lead_status === "NEGOTIATION" || c.lead_status === "SUCCESS",
+    has_ever_contacted: c.activities.some((a) => a.action_type === "WHATSAPP_CHAT" || a.action_type === "CALL" || a.action_type === "MEETING") || c.lead_status !== "NEW_LEAD",
     offering_value: c.offering_value,
     deal_value: c.deal_value,
     closing_services: c.closing_services,

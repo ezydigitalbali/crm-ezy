@@ -61,6 +61,8 @@ interface PipelineCustomer {
   instagram_username?: string | null;
   opportunity_type?: string;
   activities_count: number;
+  has_ever_pitched?: boolean;
+  has_ever_contacted?: boolean;
   offering_value?: number | null;
   deal_value?: number | null;
   closing_services?: string | null;
@@ -157,14 +159,18 @@ export default function PipelineConsoleClient({
     return salesUsers.map((u) => {
       const userCustomers = customers.filter((c) => c.assigned_to_id === u.id);
       const total = userCustomers.length;
-      const contacted = userCustomers.filter((c) => c.lead_status !== "NEW_LEAD").length;
+      // Contacted: Prospek yang saat ini sedang dalam proses kontak / follow up aktif (CONTACTED atau FOLLOW_UP)
+      const contacted = userCustomers.filter((c) => c.lead_status === "CONTACTED" || c.lead_status === "FOLLOW_UP").length;
+      // Closing / Won
       const won = userCustomers.filter((c) => c.lead_status === "SUCCESS").length;
       const failed = userCustomers.filter((c) => c.lead_status === "FAILED").length;
-      // Total yang pernah/sedang pitching (kumulatif): yang saat ini di tahap NEGOTIATION (meeting) + yang sudah lolos SUCCESS (closing)
-      const currentPitchingOnly = userCustomers.filter((c) => c.lead_status === "NEGOTIATION").length;
-      const totalPitching = currentPitchingOnly + won;
-      // Win Rate: Closing / Total yang pernah pitching, default 0 jika belum ada pitching
-      const winRate = totalPitching > 0 ? Math.round((won / totalPitching) * 100) : 0;
+      // Pitching yang saat ini sedang aktif (tahap meeting)
+      const activePitching = userCustomers.filter((c) => c.lead_status === "NEGOTIATION").length;
+      // Total yang pernah melalui pitching: aktif meeting + deal won (sukses) + yang pernah pitching tapi failed
+      const totalEverPitched = userCustomers.filter((c) => c.has_ever_pitched || c.lead_status === "NEGOTIATION" || c.lead_status === "SUCCESS").length;
+      const displayPitching = Math.max(activePitching + won, totalEverPitched);
+      // Win Rate: Closing dibagi total prospek yang pernah/sedang dipitching
+      const winRate = displayPitching > 0 ? Math.round((won / displayPitching) * 100) : 0;
 
       const totalDealWon = userCustomers
         .filter((c) => c.lead_status === "SUCCESS")
@@ -194,7 +200,7 @@ export default function PipelineConsoleClient({
         user: u,
         total,
         contacted,
-        pitching: totalPitching,
+        pitching: displayPitching,
         won,
         failed,
         winRate,
