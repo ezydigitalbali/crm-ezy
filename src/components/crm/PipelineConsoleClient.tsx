@@ -32,7 +32,9 @@ import {
   Globe,
   Camera,
   Share2,
-  Plus
+  Plus,
+  Calendar,
+  AlertTriangle
 } from "lucide-react";
 import LeadStatusBadge, { LeadStatusType, LEAD_STATUS_CONFIG } from "@/components/ui/LeadStatusBadge";
 import WhatsAppIcon from "@/components/ui/WhatsAppIcon";
@@ -61,6 +63,8 @@ interface PipelineCustomer {
   instagram_username?: string | null;
   opportunity_type?: string;
   activities_count: number;
+  created_at?: string;
+  updated_at?: string;
   has_ever_pitched?: boolean;
   has_ever_contacted?: boolean;
   offering_value?: number | null;
@@ -103,6 +107,7 @@ export default function PipelineConsoleClient({
   const [selectedSales, setSelectedSales] = useState<string>(initialSales);
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedSisterCompany, setSelectedSisterCompany] = useState<string>("ALL");
+  const [timeFilter, setTimeFilter] = useState<"ALL" | "TODAY" | "WEEK" | "MONTH">("ALL");
   const [search, setSearch] = useState("");
   const [showActivityFeed, setShowActivityFeed] = useState(false);
 
@@ -134,7 +139,7 @@ export default function PipelineConsoleClient({
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedSales, selectedStatus, selectedSisterCompany, search]);
+  }, [selectedSales, selectedStatus, selectedSisterCompany, timeFilter, search]);
 
   const isSales = currentUser?.role === "SALES";
   const isSuperadmin = currentUser?.role === "SUPERADMIN" || currentUser?.role === "HEAD";
@@ -244,6 +249,31 @@ export default function PipelineConsoleClient({
         return false;
       }
 
+      // Time filter (Hari, Minggu, Bulan berdasarkan update/kontak terakhir)
+      if (timeFilter !== "ALL") {
+        const dateStr = c.last_contacted_at || c.updated_at || c.created_at;
+        if (!dateStr) return false;
+        const targetDate = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now.getTime() - targetDate.getTime();
+        const diffHours = diffMs / (1000 * 3600);
+
+        if (timeFilter === "TODAY") {
+          // 24 jam terakhir atau hari ini
+          const isSameDay =
+            targetDate.getDate() === now.getDate() &&
+            targetDate.getMonth() === now.getMonth() &&
+            targetDate.getFullYear() === now.getFullYear();
+          if (!isSameDay && diffHours > 24) return false;
+        } else if (timeFilter === "WEEK") {
+          // 7 hari terakhir
+          if (diffHours > 7 * 24) return false;
+        } else if (timeFilter === "MONTH") {
+          // 30 hari terakhir
+          if (diffHours > 30 * 24) return false;
+        }
+      }
+
       // Search query
       if (search.trim()) {
         const q = search.toLowerCase().trim();
@@ -257,7 +287,7 @@ export default function PipelineConsoleClient({
 
       return true;
     });
-  }, [customers, isSales, currentUser, selectedSales, selectedStatus, selectedSisterCompany, search]);
+  }, [customers, isSales, currentUser, selectedSales, selectedStatus, selectedSisterCompany, timeFilter, search]);
 
   // Paginated customers for current page
   const paginatedCustomers = useMemo(() => {
@@ -828,6 +858,54 @@ export default function PipelineConsoleClient({
               ...sisterCompanies.map((sc) => ({ value: sc, label: sc })),
             ]}
           />
+
+          {/* Time Filter Segmented Buttons (Hari, Minggu, Bulan) */}
+          <div className="flex items-center bg-[#FCFBF0] p-0.5 rounded-lg border border-[#1C1B18]/15 text-[11px] font-semibold">
+            <button
+              type="button"
+              onClick={() => setTimeFilter("ALL")}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                timeFilter === "ALL"
+                  ? "bg-[#002236] text-white shadow-xs font-bold"
+                  : "text-[#1C1B18]/60 hover:text-[#1C1B18]"
+              }`}
+            >
+              Semua Waktu
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeFilter("TODAY")}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                timeFilter === "TODAY"
+                  ? "bg-[#002236] text-white shadow-xs font-bold"
+                  : "text-[#1C1B18]/60 hover:text-[#1C1B18]"
+              }`}
+            >
+              Hari Ini
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeFilter("WEEK")}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                timeFilter === "WEEK"
+                  ? "bg-[#002236] text-white shadow-xs font-bold"
+                  : "text-[#1C1B18]/60 hover:text-[#1C1B18]"
+              }`}
+            >
+              Minggu Ini (7h)
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeFilter("MONTH")}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                timeFilter === "MONTH"
+                  ? "bg-[#002236] text-white shadow-xs font-bold"
+                  : "text-[#1C1B18]/60 hover:text-[#1C1B18]"
+              }`}
+            >
+              Bulan Ini (30h)
+            </button>
+          </div>
         </div>
 
         <div className="text-xs text-[#1C1B18]/60 font-medium">
@@ -918,7 +996,34 @@ export default function PipelineConsoleClient({
 
                       {/* Status Pipeline */}
                       <td className="py-2.5 px-3">
-                        <LeadStatusBadge status={c.lead_status} size="sm" />
+                        <div className="flex flex-col gap-1 items-start">
+                          <LeadStatusBadge status={c.lead_status} size="sm" />
+                          
+                          {/* Expiry Warning Indicator if in FOLLOW_UP */}
+                          {c.lead_status === "FOLLOW_UP" && (() => {
+                            const refDate = c.last_contacted_at || c.updated_at;
+                            if (!refDate) return null;
+                            const diffDays = Math.floor((Date.now() - new Date(refDate).getTime()) / (1000 * 3600 * 24));
+                            const daysLeft = Math.max(0, 7 - diffDays);
+                            if (diffDays >= 3) {
+                              const isCrit = daysLeft <= 1;
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold font-number border ${
+                                    isCrit
+                                      ? "bg-rose-100 text-rose-700 border-rose-300 animate-pulse"
+                                      : "bg-amber-100 text-amber-800 border-amber-300"
+                                  }`}
+                                  title={`${diffDays} hari tanpa respon. Akan gagal dalam ${daysLeft} hari.`}
+                                >
+                                  <AlertTriangle size={9} />
+                                  <span>{daysLeft === 0 ? "Kadaluarsa Hari Ini" : `Sisa ${daysLeft} Hari`}</span>
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </td>
 
                       {/* Nilai Penawaran / Deal */}

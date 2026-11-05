@@ -6,6 +6,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/context/UserContext";
 import ConfirmModal from "@/components/common/ConfirmModal";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 export default function TopBar({
   onOpenMobile,
@@ -95,7 +96,10 @@ export default function TopBar({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Notification & Reminder Bell */}
+          <NotificationBell />
+
           {/* Logged In User Indicator with Role & Specialty */}
           <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-[#1C1B18]/10">
             <div className="flex items-center gap-2">
