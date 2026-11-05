@@ -158,11 +158,13 @@ export default function PipelineConsoleClient({
       const userCustomers = customers.filter((c) => c.assigned_to_id === u.id);
       const total = userCustomers.length;
       const contacted = userCustomers.filter((c) => c.lead_status !== "NEW_LEAD").length;
-      const pitching = userCustomers.filter((c) => c.lead_status === "NEGOTIATION").length;
       const won = userCustomers.filter((c) => c.lead_status === "SUCCESS").length;
       const failed = userCustomers.filter((c) => c.lead_status === "FAILED").length;
-      // Win Rate: Closing / Pitching (Meeting), default 0 if no pitching yet
-      const winRate = pitching > 0 ? Math.round((won / pitching) * 100) : 0;
+      // Total yang pernah/sedang pitching (kumulatif): yang saat ini di tahap NEGOTIATION (meeting) + yang sudah lolos SUCCESS (closing)
+      const currentPitchingOnly = userCustomers.filter((c) => c.lead_status === "NEGOTIATION").length;
+      const totalPitching = currentPitchingOnly + won;
+      // Win Rate: Closing / Total yang pernah pitching, default 0 jika belum ada pitching
+      const winRate = totalPitching > 0 ? Math.round((won / totalPitching) * 100) : 0;
 
       const totalDealWon = userCustomers
         .filter((c) => c.lead_status === "SUCCESS")
@@ -192,7 +194,7 @@ export default function PipelineConsoleClient({
         user: u,
         total,
         contacted,
-        pitching,
+        pitching: totalPitching,
         won,
         failed,
         winRate,
