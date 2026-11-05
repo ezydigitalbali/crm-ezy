@@ -21,7 +21,8 @@ import {
   Trash2,
   Edit,
   CheckSquare,
-  Square
+  Square,
+  XCircle
 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LeadStatusBadge from "@/components/ui/LeadStatusBadge";
@@ -57,6 +58,12 @@ interface CustomerWithDetails {
   offering_value?: number | null;
   deal_value?: number | null;
   closing_services?: string | null;
+  activities?: {
+    action_type: string;
+    status_to: string | null;
+    user_name: string;
+    created_at: Date | string;
+  }[];
   website: {
     status: string;
     domain: string | null;
@@ -841,21 +848,62 @@ export default function CustomerTableClient({
                             <span>{currentUser && c.assigned_to.id === currentUser.id ? "Anda (Saya)" : c.assigned_to.name}</span>
                           </div>
                         ) : (
-                          <button
-                            onClick={(e) => handleClaimLead(c.id, e)}
-                            disabled={claimingId === c.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#FF7800]/12 hover:bg-[#FF7800] text-[#c25900] hover:text-white text-[11px] font-bold transition-all cursor-pointer shadow-2xs border border-[#FF7800]/30 disabled:opacity-50"
-                            title="Ambil prospek ini untuk saya pitching sendiri"
-                          >
-                            <UserCheck size={11} />
-                            <span>{claimingId === c.id ? "Mengambil..." : "Ambil Prospek"}</span>
-                          </button>
+                          <div className="flex flex-col gap-1 items-start">
+                            {/* Riwayat Sales Sebelumnya */}
+                            {(() => {
+                              const lastHandler = c.last_contacted_by || c.activities?.[0]?.user_name;
+                              if (lastHandler && lastHandler !== "System" && lastHandler !== "Sistem (Otomatis)") {
+                                return (
+                                  <span 
+                                    className="text-[10px] text-[#1C1B18]/60 font-medium flex items-center gap-1 bg-[#1C1B18]/5 px-2 py-0.5 rounded"
+                                    title={`Pernah di-handle sebelumnya oleh ${lastHandler}`}
+                                  >
+                                    <UserIcon size={10} className="text-[#FF7800]" />
+                                    <span>Eks: {lastHandler}</span>
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+                            <button
+                              onClick={(e) => handleClaimLead(c.id, e)}
+                              disabled={claimingId === c.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#FF7800]/12 hover:bg-[#FF7800] text-[#c25900] hover:text-white text-[11px] font-bold transition-all cursor-pointer shadow-2xs border border-[#FF7800]/30 disabled:opacity-50"
+                              title="Ambil prospek ini untuk saya pitching sendiri"
+                            >
+                              <UserCheck size={11} />
+                              <span>{claimingId === c.id ? "Mengambil..." : "Ambil Prospek"}</span>
+                            </button>
+                          </div>
                         )}
                       </td>
 
                       {/* Status CRM */}
                       <td className="py-2.5 px-3">
-                        <LeadStatusBadge status={c.lead_status} size="sm" />
+                        {c.lead_status === "FAILED" ? (
+                          (() => {
+                            const hadPitching = c.activities?.some((a) => a.status_to === "NEGOTIATION" || a.action_type === "MEETING");
+                            return hadPitching ? (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300"
+                                title="Gagal setelah tahap pitching / meeting"
+                              >
+                                <XCircle size={11} />
+                                <span>Gagal Pitching</span>
+                              </span>
+                            ) : (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300"
+                                title="Gagal di tahap kontak awal (belum sempat pitching / kadaluarsa follow up)"
+                              >
+                                <XCircle size={11} />
+                                <span>Gagal Awal</span>
+                              </span>
+                            );
+                          })()
+                        ) : (
+                          <LeadStatusBadge status={c.lead_status} size="sm" />
+                        )}
                       </td>
 
                       {/* Category */}

@@ -31,6 +31,15 @@ export default async function CustomersPage({ searchParams }: SearchParamsProps)
         website: true,
         instagram: true,
         assigned_to: true,
+        activities: {
+          select: {
+            action_type: true,
+            status_to: true,
+            user_name: true,
+            created_at: true,
+          },
+          orderBy: { created_at: "desc" },
+        },
       },
       orderBy: { business_name: "asc" },
     }),
