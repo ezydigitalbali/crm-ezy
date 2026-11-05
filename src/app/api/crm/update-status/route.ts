@@ -59,12 +59,19 @@ export async function POST(req: Request) {
       ? parseNumericValue(dealValue)
       : currentCustomer.deal_value;
 
+    // Tentukan assigned_to_id baru:
+    // Jika status diubah ke FAILED, otomatis lepas penugasan ke pool unassigned (assigned_to_id = null)
+    let nextAssignedToId = assignedToId !== undefined ? assignedToId : currentCustomer.assigned_to_id;
+    if (statusTo === "FAILED") {
+      nextAssignedToId = null;
+    }
+
     // Update customer CRM fields
     const updatedCustomer = await prisma.customer.update({
       where: { id: customerId },
       data: {
         lead_status: statusTo,
-        assigned_to_id: assignedToId !== undefined ? assignedToId : currentCustomer.assigned_to_id,
+        assigned_to_id: nextAssignedToId,
         offering_value: parsedOffering,
         deal_value: parsedDeal,
         closing_services: closingServicesStr,

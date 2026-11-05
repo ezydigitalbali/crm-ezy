@@ -67,6 +67,9 @@ interface PipelineCustomer {
   updated_at?: string;
   has_ever_pitched?: boolean;
   has_ever_contacted?: boolean;
+  last_handler_name?: string | null;
+  pitching_handler_name?: string | null;
+  pitching_handler_id?: string | null;
   offering_value?: number | null;
   deal_value?: number | null;
   closing_services?: string | null;
@@ -194,9 +197,18 @@ export default function PipelineConsoleClient({
       const failed = userCustomers.filter((c) => c.lead_status === "FAILED").length;
       // Pitching yang saat ini sedang aktif (tahap meeting)
       const activePitching = userCustomers.filter((c) => c.lead_status === "NEGOTIATION").length;
-      // Total yang pernah melalui pitching: aktif meeting + deal won (sukses)
-      const totalEverPitched = userCustomers.filter((c) => c.has_ever_pitched || c.lead_status === "NEGOTIATION" || c.lead_status === "SUCCESS").length;
-      const displayPitching = Math.max(activePitching + won, totalEverPitched);
+      // Prospek yang pernah di-pitching oleh sales ini (mencakup yang aktif, closing won, maupun yang pernah pitching lalu FAILED dan lepas assign)
+      const everPitchedByThisSales = customers.filter((c) => {
+        if (selectedMonth !== "ALL" || selectedYear !== "ALL") {
+          const dStr = c.last_contacted_at || c.updated_at || c.created_at;
+          if (!filterByDateRange(dStr)) return false;
+        }
+        return (
+          c.pitching_handler_id === u.id || 
+          (c.assigned_to_id === u.id && (c.has_ever_pitched || c.lead_status === "NEGOTIATION" || c.lead_status === "SUCCESS"))
+        );
+      }).length;
+      const displayPitching = Math.max(activePitching + won, everPitchedByThisSales);
       // Win Rate: Closing dibagi total prospek yang pernah/sedang dipitching
       const winRate = displayPitching > 0 ? Math.round((won / displayPitching) * 100) : 0;
 
@@ -983,27 +995,59 @@ export default function PipelineConsoleClient({
                             <span>{isAssignedToMe ? "Anda (Saya)" : c.assigned_to_name}</span>
                           </div>
                         ) : (
-                          <button
-                            onClick={(e) => handleClaimLead(c.id, e)}
-                            disabled={claimingId === c.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#FF7800]/12 hover:bg-[#FF7800] text-[#c25900] hover:text-white text-[11px] font-bold transition-all cursor-pointer shadow-2xs border border-[#FF7800]/30 disabled:opacity-50"
-                            title="Ambil prospek ini untuk Anda pitching sendiri"
-                          >
-                            <UserCheck size={11} />
-                            <span>{claimingId === c.id ? "Mengambil..." : "Ambil Prospek"}</span>
-                          </button>
+                          <div className="flex flex-col gap-1 items-start">
+                            {/* Riwayat Sales Sebelumnya */}
+                            {c.last_handler_name && (
+                              <span 
+                                className="text-[10px] text-[#1C1B18]/60 font-medium flex items-center gap-1 bg-[#1C1B18]/5 px-2 py-0.5 rounded"
+                                title={`Pernah di-handle sebelumnya oleh ${c.last_handler_name}`}
+                              >
+                                <UserIcon size={10} className="text-[#FF7800]" />
+                                <span>Eks: {c.last_handler_name}</span>
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => handleClaimLead(c.id, e)}
+                              disabled={claimingId === c.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#FF7800]/12 hover:bg-[#FF7800] text-[#c25900] hover:text-white text-[11px] font-bold transition-all cursor-pointer shadow-2xs border border-[#FF7800]/30 disabled:opacity-50"
+                              title="Ambil prospek ini untuk Anda pitching sendiri"
+                            >
+                              <UserCheck size={11} />
+                              <span>{claimingId === c.id ? "Mengambil..." : "Ambil Prospek"}</span>
+                            </button>
+                          </div>
                         )}
                       </td>
 
                       {/* Status Pipeline */}
                       <td className="py-2.5 px-3">
                         <div className="flex flex-col gap-1 items-start">
-                          <LeadStatusBadge status={c.lead_status} size="sm" />
+                          {c.lead_status === "FAILED" ? (
+                            c.has_ever_pitched ? (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300"
+                                title={c.pitching_handler_name ? `Gagal setelah tahap pitching/meeting oleh ${c.pitching_handler_name}` : "Gagal setelah tahap pitching / meeting"}
+                              >
+                                <XCircle size={11} />
+                                <span>Gagal Pitching</span>
+                              </span>
+                            ) : (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300"
+                                title="Gagal di tahap kontak awal (belum sempat pitching / kadaluarsa follow up)"
+                              >
+                                <XCircle size={11} />
+                                <span>Gagal Awal</span>
+                              </span>
+                            )
+                          ) : (
+                            <LeadStatusBadge status={c.lead_status} size="sm" />
+                          )}
                           
                           {/* Recycle Pool Indicator if unassigned & FAILED */}
                           {!c.assigned_to_id && c.lead_status === "FAILED" && (
                             <span 
-                              className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold font-number bg-slate-100 text-slate-700 border border-slate-300"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold font-number bg-amber-50 text-amber-800 border border-amber-200"
                               title="Prospek kadaluarsa / gagal dilepas kembali ke pool unassigned. Siap diambil & di-follow up ulang!"
                             >
                               ♻️ Pool Recycle
