@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getSessionUser } from "@/lib/auth/auth";
 import { Settings, Database, Server, Shield, Clock, CheckCircle2, ShieldAlert, ArrowLeft } from "lucide-react";
 import SisterCompanyManager from "@/components/settings/SisterCompanyManager";
+import UserManager from "@/components/settings/UserManager";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -227,85 +228,18 @@ export default async function SettingsPage() {
         </div>
       )}
 
-      {/* 2. Team & User Role Management (Tampil untuk Superadmin & Head) */}
-      <div className="bg-white rounded-xl border border-[#1C1B18]/10 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-[#1C1B18]/10 bg-[#FCFBF0]/60 flex items-center justify-between">
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#1C1B18]/80">
-              User Accounts & Role Access
-            </h4>
-            <p className="text-[11px] text-[#1C1B18]/50 mt-0.5">
-              Superadmin, Head, and Sales roles with full digital presence visibility (Website & Social Media).
-            </p>
-          </div>
-          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#FF7800]/15 text-[#c25900] font-number">
-            {users.length} Active Accounts
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-[#1C1B18]/10 bg-[#FCFBF0]/40 text-[10px] font-bold uppercase tracking-wider text-[#1C1B18]/50">
-                <th className="py-2.5 px-4">User Name</th>
-                <th className="py-2.5 px-3">Role</th>
-                <th className="py-2.5 px-3">Sales Scope / Focus</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-4 text-right">Permissions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1C1B18]/8">
-              {users.map((u) => {
-                const isSuper = u.role === "SUPERADMIN";
-                const isHeadRole = u.role === "HEAD";
-                return (
-                  <tr key={u.id} className="hover:bg-[#FCFBF0]/40">
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-xs text-[#1C1B18] block">
-                        {u.name}
-                      </span>
-                      <span className="text-[11px] font-number text-[#1C1B18]/50 block">
-                        {u.email}
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-3">
-                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-number ${
-                        isSuper 
-                          ? "bg-[#002236] text-white" 
-                          : isHeadRole
-                          ? "bg-[#4F46E5] text-white"
-                          : "bg-[#1A75FF] text-white"
-                      }`}>
-                        {isSuper ? "Superadmin" : isHeadRole ? "Head" : "Sales Specialist"}
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-3 text-[#1C1B18]/80 font-medium">
-                      {u.specialty || "Website & Social Media"}
-                    </td>
-
-                    <td className="py-3 px-3">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Active
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-4 text-right text-[11px] text-[#1C1B18]/60 font-medium">
-                      {isSuper 
-                        ? "Full Admin & Engine Control" 
-                        : isHeadRole 
-                        ? "Full Operations & Pipeline Oversight" 
-                        : "View, Filter, Scan & Export All Leads"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* 2. Team & User Role Management (Interactive for Superadmin & Head) */}
+      <UserManager
+        initialUsers={users.map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          specialty: u.specialty,
+          is_active: u.is_active,
+        }))}
+        isSuperadmin={isSuperadmin}
+      />
 
       {/* 3. Audit Logs (Tampil untuk Superadmin & Head) */}
       <div className="bg-white rounded-xl border border-[#1C1B18]/10 shadow-xs overflow-hidden">
