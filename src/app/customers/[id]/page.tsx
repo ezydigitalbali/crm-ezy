@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
+import { getSessionUser } from "@/lib/auth/auth";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ManualVerificationSection from "@/components/customers/ManualVerificationSection";
 import InstagramIcon from "@/components/ui/InstagramIcon";
@@ -32,6 +33,11 @@ interface Props {
 import CustomerCrmDossierCard from "@/components/customers/CustomerCrmDossierCard";
 
 export default async function CustomerDetailPage({ params }: Props) {
+  const sessionUser = await getSessionUser();
+  if (sessionUser?.role === "SCOUT") {
+    redirect("/dashboard");
+  }
+
   const { id } = await params;
 
   const [customer, users] = await Promise.all([

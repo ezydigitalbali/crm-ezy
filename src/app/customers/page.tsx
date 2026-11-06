@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { getSessionUser } from "@/lib/auth/auth";
 import CustomerTableClient from "@/components/customers/CustomerTableClient";
 import { UploadCloud, Play, Plus } from "lucide-react";
 import { autoExpireStaleFollowUps } from "@/lib/crm/autoExpireFollowUps";
@@ -16,6 +18,11 @@ interface SearchParamsProps {
 }
 
 export default async function CustomersPage({ searchParams }: SearchParamsProps) {
+  const sessionUser = await getSessionUser();
+  if (sessionUser?.role === "SCOUT") {
+    redirect("/dashboard");
+  }
+
   // Auto-expire prospek FOLLOW_UP >= 7 hari
   await autoExpireStaleFollowUps();
 

@@ -225,10 +225,12 @@ export default function UserManager({
                           ? "bg-[#002236] text-white"
                           : isHeadRole
                           ? "bg-[#4F46E5] text-white"
+                          : u.role === "SCOUT"
+                          ? "bg-amber-600 text-white"
                           : "bg-[#1A75FF] text-white"
                       }`}
                     >
-                      {isSuper ? "Superadmin" : isHeadRole ? "Head" : "Sales Specialist"}
+                      {isSuper ? "Superadmin" : isHeadRole ? "Head" : u.role === "SCOUT" ? "Lead Scout" : "Sales Specialist"}
                     </span>
                   </td>
 
@@ -350,10 +352,17 @@ export default function UserManager({
                   <label className="block font-semibold text-[#1C1B18] mb-1">Role / Peran</label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value)}
+                    onChange={(e) => {
+                      const newRole = e.target.value;
+                      setRole(newRole);
+                      if (newRole === "SCOUT") {
+                        setSpecialty("Lead Scout / Data Prospector");
+                      }
+                    }}
                     className="w-full h-9 px-2.5 border border-[#1C1B18]/15 rounded-lg focus:outline-none focus:border-[#FF7800] bg-white font-medium"
                   >
                     <option value="SALES">Sales Specialist</option>
+                    <option value="SCOUT">Lead Scout (Input Saja)</option>
                     <option value="HEAD">Head of Sales</option>
                     <option value="SUPERADMIN">Superadmin</option>
                   </select>
@@ -367,6 +376,7 @@ export default function UserManager({
                     className="w-full h-9 px-2.5 border border-[#1C1B18]/15 rounded-lg focus:outline-none focus:border-[#FF7800] bg-white font-medium"
                   >
                     <option value="Website & Social Media Specialist">Website & Social Media</option>
+                    <option value="Lead Scout / Data Prospector">Lead Scout / Data Prospector</option>
                     <option value="Website & SEO Specialist">Website & SEO</option>
                     <option value="Social Media Specialist">Social Media Only</option>
                     <option value="Production & Media Specialist">Production / Media</option>
@@ -467,10 +477,17 @@ export default function UserManager({
                   <label className="block font-semibold text-[#1C1B18] mb-1">Role / Peran</label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value)}
+                    onChange={(e) => {
+                      const newRole = e.target.value;
+                      setRole(newRole);
+                      if (newRole === "SCOUT") {
+                        setSpecialty("Lead Scout / Data Prospector");
+                      }
+                    }}
                     className="w-full h-9 px-2.5 border border-[#1C1B18]/15 rounded-lg focus:outline-none focus:border-[#FF7800] bg-white font-medium"
                   >
                     <option value="SALES">Sales Specialist</option>
+                    <option value="SCOUT">Lead Scout (Input Saja)</option>
                     <option value="HEAD">Head of Sales</option>
                     <option value="SUPERADMIN">Superadmin</option>
                   </select>
@@ -484,6 +501,7 @@ export default function UserManager({
                     className="w-full h-9 px-2.5 border border-[#1C1B18]/15 rounded-lg focus:outline-none focus:border-[#FF7800] bg-white font-medium"
                   >
                     <option value="Website & Social Media Specialist">Website & Social Media</option>
+                    <option value="Lead Scout / Data Prospector">Lead Scout / Data Prospector</option>
                     <option value="Website & SEO Specialist">Website & SEO</option>
                     <option value="Social Media Specialist">Social Media Only</option>
                     <option value="Production & Media Specialist">Production / Media</option>

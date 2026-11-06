@@ -61,6 +61,7 @@ export default function TopBar({
 
   const isSuperadmin = user?.role === "SUPERADMIN";
   const isHead = user?.role === "HEAD";
+  const isScout = user?.role === "SCOUT";
 
   const handleSidebarButton = () => {
     if (onToggleSidebar) {
@@ -105,7 +106,7 @@ export default function TopBar({
             <div className="flex items-center gap-2">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold tracking-tight text-white shrink-0 ${
-                  isSuperadmin ? "bg-[#002236]" : isHead ? "bg-[#4F46E5]" : "bg-[#1A75FF]"
+                  isSuperadmin ? "bg-[#002236]" : isHead ? "bg-[#4F46E5]" : isScout ? "bg-amber-600" : "bg-[#1A75FF]"
                 }`}
               >
                 {user?.name ? user.name.slice(0, 2).toUpperCase() : "EZ"}
@@ -124,6 +125,10 @@ export default function TopBar({
                     ) : isHead ? (
                       <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded font-number bg-[#4F46E5] text-white">
                         Head
+                      </span>
+                    ) : isScout ? (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded font-number bg-amber-600 text-white">
+                        Scout
                       </span>
                     ) : (
                       <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded font-number bg-[#FF7800] text-white">

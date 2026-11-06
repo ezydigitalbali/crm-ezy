@@ -51,7 +51,13 @@ export default function Sidebar({
     return null;
   }
 
+  const isScout = userRole === "SCOUT";
+
   const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (isScout) {
+      // User SCOUT hanya boleh akses Dashboard (Lead Scout input portal)
+      return item.href === "/dashboard";
+    }
     if (item.superadminOnly && userRole !== "SUPERADMIN" && userRole !== "HEAD") return false;
     return true;
   });

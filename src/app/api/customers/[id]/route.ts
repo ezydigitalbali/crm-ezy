@@ -10,6 +10,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "Sesi telah berakhir" }, { status: 401 });
+    }
+
+    if (sessionUser.role === "SCOUT") {
+      return NextResponse.json({ error: "Akses ditolak." }, { status: 403 });
+    }
+
     const { id } = await params;
     const customer = await prisma.customer.findUnique({
       where: { id },

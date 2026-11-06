@@ -7,7 +7,7 @@ export interface CurrentUser {
   id: string;
   name: string;
   email: string;
-  role: "SUPERADMIN" | "HEAD" | "SALES";
+  role: "SUPERADMIN" | "HEAD" | "SALES" | "SCOUT";
   specialty?: string;
 }
 

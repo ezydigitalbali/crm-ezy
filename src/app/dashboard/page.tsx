@@ -6,6 +6,7 @@ import DigitalPresenceMatrix from "@/components/dashboard/DigitalPresenceMatrix"
 import OpportunityCard from "@/components/dashboard/OpportunityCard";
 import StatusBadge from "@/components/ui/StatusBadge";
 import InstagramIcon from "@/components/ui/InstagramIcon";
+import LeadScoutPortal from "@/components/dashboard/LeadScoutPortal";
 import { 
   Globe, 
   TrendingUp, 
@@ -28,6 +29,11 @@ export default async function DashboardPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) {
     redirect("/login");
+  }
+
+  // Jika user adalah role SCOUT, tampilkan khusus halaman Input Leads tanpa akses melihat data customer
+  if (sessionUser.role === "SCOUT") {
+    return <LeadScoutPortal user={{ name: sessionUser.name, email: sessionUser.email }} />;
   }
 
   // Jalankan auto-expire untuk follow-up >= 7 hari

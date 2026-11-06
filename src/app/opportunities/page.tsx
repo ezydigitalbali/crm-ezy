@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
+import { getSessionUser } from "@/lib/auth/auth";
 import OpportunityTableClient from "@/components/opportunities/OpportunityTableClient";
 import { Target, Sparkles } from "lucide-react";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +11,11 @@ interface Props {
 }
 
 export default async function OpportunitiesPage({ searchParams }: Props) {
+  const sessionUser = await getSessionUser();
+  if (sessionUser?.role === "SCOUT") {
+    redirect("/dashboard");
+  }
+
   const { tab = "high-website" } = await searchParams;
 
   const customers = await prisma.customer.findMany({

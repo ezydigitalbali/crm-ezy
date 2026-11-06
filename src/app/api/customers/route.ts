@@ -40,11 +40,27 @@ export async function POST(req: Request) {
     }
 
     // Role-based Assignment Rules:
-    // 1. Sales: Selalu otomatis di-assign ke dirinya sendiri
-    // 2. Superadmin / Head: Bebas memilih (diri sendiri, sales tertentu, atau unassigned/null)
+    // 1. Scout / Lead Scout (atau user Anom): Selalu otomatis di-assign ke user Joan sebagai prospek baru
+    // 2. Sales: Selalu otomatis di-assign ke dirinya sendiri
+    // 3. Superadmin / Head: Bebas memilih (diri sendiri, sales tertentu, atau unassigned/null)
     let finalAssignedToId: string | null = null;
+    let actualLeadStatus = lead_status;
 
-    if (sessionUser.role === "SALES") {
+    if (sessionUser.role === "SCOUT" || sessionUser.name.toLowerCase().includes("anom")) {
+      // Cari ID user Joan secara dinamis
+      const joanUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { name: { contains: "Joan", mode: "insensitive" } },
+            { email: { contains: "joan", mode: "insensitive" } },
+          ],
+          is_active: true,
+        },
+        select: { id: true },
+      });
+      finalAssignedToId = joanUser ? joanUser.id : sessionUser.id;
+      actualLeadStatus = "NEW_LEAD"; // Scout leads masuk sebagai New Lead
+    } else if (sessionUser.role === "SALES") {
       finalAssignedToId = sessionUser.id;
     } else {
       // SUPERADMIN atau HEAD
@@ -110,14 +126,14 @@ export async function POST(req: Request) {
         business_category: business_category?.trim() || "General",
         source: "ORGANIC",
         sister_company: "Organik",
-        lead_status: lead_status as any,
+        lead_status: actualLeadStatus as any,
         assigned_to_id: finalAssignedToId,
         offering_value: parsedOffering,
         deal_value: parsedDeal,
         closing_services: closingServicesStr,
         lead_notes: lead_notes?.trim() || null,
-        last_contacted_at: lead_status !== "NEW_LEAD" ? new Date() : null,
-        last_contacted_by: lead_status !== "NEW_LEAD" ? sessionUser.name : null,
+        last_contacted_at: actualLeadStatus !== "NEW_LEAD" ? new Date() : null,
+        last_contacted_by: actualLeadStatus !== "NEW_LEAD" ? sessionUser.name : null,
       },
     });
 
@@ -157,6 +173,7 @@ export async function POST(req: Request) {
     });
 
     // 4. Catat riwayat aktivitas (CustomerActivity)
+    const isScout = sessionUser.role === "SCOUT" || sessionUser.name.toLowerCase().includes("anom");
     await prisma.customerActivity.create({
       data: {
         customer_id: customer.id,
@@ -167,7 +184,9 @@ export async function POST(req: Request) {
         offering_value: customer.offering_value,
         deal_value: customer.deal_value,
         closing_services: customer.closing_services,
-        notes: lead_notes?.trim() || `Data prospek baru ditambahkan secara manual (Organik) oleh ${sessionUser.name}`,
+        notes: lead_notes?.trim() || (isScout 
+          ? `Data prospek baru ditambahkan oleh Scout ${sessionUser.name} dan diteruskan ke Joan`
+          : `Data prospek baru ditambahkan secara manual (Organik) oleh ${sessionUser.name}`),
       },
     });
 

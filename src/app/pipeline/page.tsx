@@ -4,6 +4,7 @@ import PipelineConsoleClient from "@/components/crm/PipelineConsoleClient";
 import { autoExpireStaleFollowUps } from "@/lib/crm/autoExpireFollowUps";
 import { TrendingUp, ShieldCheck, Users, Target } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,11 @@ interface Props {
 }
 
 export default async function PipelinePage({ searchParams }: Props) {
+  const sessionUserCheck = await getSessionUser();
+  if (sessionUserCheck?.role === "SCOUT") {
+    redirect("/dashboard");
+  }
+
   const { sales = "ALL" } = await searchParams;
 
   // Jalankan auto-expire untuk prospek FOLLOW_UP yang >= 7 hari tanpa respon/perubahan
